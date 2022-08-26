@@ -1,13 +1,21 @@
+import string
+import tkinter
 from tkinter import *
 from tkinter import messagebox
+from tkinter.filedialog import askopenfilename
+import cv2 as cv
+from PIL import ImageTk, Image
+from PIL.Image import Resampling
+
 
 class MenuBar(Menu):
     def __init__(self, ad):
         Menu.__init__(self, ad)
-        
+        imageOperations = ImageOperations()
+
         #File options (Open, Exit)
         file = Menu(self, tearoff=False)
-        file.add_command(label="Open")  
+        file.add_command(label="Open",command=imageOperations.openImage)
         file.add_separator()
         file.add_command(label="Exit", underline=1, command=self.quit)
         self.add_cascade(label="File",underline=0, menu=file)
@@ -21,10 +29,12 @@ class MenuBar(Menu):
         #Help options (About the program)
         help = Menu(self, tearoff=0)  
         help.add_command(label="About", command=self.about)  
-        self.add_cascade(label="Help", menu=help)  
+        self.add_cascade(label="Help", menu=help)
+
+        #Open image
 
     def exit(self):
-        self.exit
+        self.exit()
 
     def about(self):
             messagebox.showinfo(title='ArthritisDetec', 
@@ -38,6 +48,28 @@ class MainApp(Tk):
         Tk.__init__(self)
         menubar = MenuBar(self) # Declaring menu bar
         self.config(menu=menubar)
+
+class ImageOperations:
+
+    def loadImage(self, path: string):
+
+        img = Image.open(path)
+        img = img.resize((300, 300), Resampling.LANCZOS)
+        self.displayImage(img)
+    def displayImage(self, img):
+        test = ImageTk.PhotoImage(img)
+
+        label1 = tkinter.Label(image=test)
+        label1.image = test
+
+        # Position image
+        label1.place(x= 20, y = 20)
+
+    def openImage(self):
+        # root.withdraw()
+        filename = askopenfilename()
+        return self.loadImage(filename)
+        # root.deiconify()
 
 if __name__ == "__main__":
     ad=MainApp()
