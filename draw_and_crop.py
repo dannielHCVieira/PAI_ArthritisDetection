@@ -1,8 +1,6 @@
 import cv2
 
-# initialize the list of reference point
-ref_point = []
-crop = False
+
 
 def shape_selection(event, x, y, flags, param):
 	# grab references to the global variables
@@ -23,33 +21,38 @@ def shape_selection(event, x, y, flags, param):
 		cv2.rectangle(image, ref_point[0], ref_point[1], (0, 255, 0), 2)
 		cv2.imshow("image", image)
 
+def create_environment(imageLoaded):
+	# initialize the list of reference point
+	global ref_point
+	ref_point = []
+	crop = False
 
-# read the image, clone it, and setup the mouse callback function
-image = cv2.imread("test.jpeg")
-clone = image.copy()
-cv2.namedWindow("image")
-cv2.setMouseCallback("image", shape_selection)
+	global image
+	# read the image, clone it, and setup the mouse callback function
+	image = cv2.imread("test.jpeg")
+	clone = image.copy()
+	cv2.namedWindow("image")
+	cv2.setMouseCallback("image", shape_selection)
 
 
-# keep looping until the 'q' key is pressed
-while True:
-	# display the image and wait for a keypress
-	cv2.imshow("image", image)
-	key = cv2.waitKey(1) & 0xFF
+	# keep looping until the 'q' key is pressed
+	while True:
+		# display the image and wait for a keypress
+		cv2.imshow("image", image)
+		key = cv2.waitKey(1) & 0xFF
 
-	# press 'r' to reset the window
-	if key == ord("r"):
-		image = clone.copy()
+		# press 'r' to reset the window
+		if key == ord("r"):
+			image = clone.copy()
 
-	# if the 'c' key is pressed, break from the loop
-	elif key == ord("c"):
-		break
+		# if the 'c' key is pressed, break from the loop
+		elif key == ord("c"):
+			break
 
-if len(ref_point) == 2:
-	crop_img = clone[ref_point[0][1]:ref_point[1][1], ref_point[0][0]:
-														ref_point[1][0]]
-	cv2.imshow("crop_img", crop_img)
-	cv2.waitKey(0)
+	if len(ref_point) == 2:
+		crop_img = clone[ref_point[0][1]:ref_point[1][1], ref_point[0][0]:
+															ref_point[1][0]]
+		cv2.imshow("crop_img", crop_img)
+		cv2.waitKey(0)
 
-# close all open windows
-cv2.destroyAllWindows()
+

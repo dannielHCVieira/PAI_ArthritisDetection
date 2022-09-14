@@ -7,6 +7,8 @@ import cv2 as cv
 from PIL import ImageTk, Image
 from PIL.Image import Resampling
 
+from draw_and_crop import create_environment
+
 
 class MenuBar(Menu):
     def __init__(self, ad):
@@ -15,14 +17,14 @@ class MenuBar(Menu):
 
         #File options (Open, Exit)
         file = Menu(self, tearoff=False)
-        file.add_command(label="Open",command=imageOperations.openImage)
+        file.add_command(label="Open", command=imageOperations.openImage)
         file.add_separator()
         file.add_command(label="Exit", underline=1, command=self.quit)
-        self.add_cascade(label="File",underline=0, menu=file)
+        self.add_cascade(label="File", underline=0, menu=file)
         
         #Tools options (Cut/Select subregion, Search region on image)
         tools = Menu(self, tearoff=0)  
-        tools.add_command(label="Cut/Select")  
+        tools.add_command(label="Cut/Select")
         tools.add_command(label="Search...")  
         self.add_cascade(label="Tools", menu=tools) 
 
@@ -52,18 +54,19 @@ class MainApp(Tk):
 class ImageOperations:
 
     def loadImage(self, path: string):
-
         img = Image.open(path)
-        img = img.resize((300, 300), Resampling.LANCZOS)
-        self.displayImage(img)
+        img_resized = img.resize((300, 300), Resampling.LANCZOS)
+        self.displayImage(img_resized)
     def displayImage(self, img):
-        test = ImageTk.PhotoImage(img)
-
-        label1 = tkinter.Label(image=test)
-        label1.image = test
-
-        # Position image
-        label1.place(x= 20, y = 20)
+        create_environment(img)
+        # test = ImageTk.PhotoImage(img)
+        #
+        # label1 = tkinter.Label(image=test)
+        # label1.image = test
+        # w = label1.winfo_width()
+        # h = label1.winfo_height()
+        #
+        # label1.pack(anchor="center")#place(x=300, y=300, anchor="center")
 
     def openImage(self):
         # root.withdraw()
