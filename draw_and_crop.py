@@ -29,7 +29,7 @@ def create_environment(imageLoaded):
 
 	global image
 	# read the image, clone it, and setup the mouse callback function
-	image = cv2.imread("test.jpeg")
+	image = cv2.imread(imageLoaded)
 	clone = image.copy()
 	cv2.namedWindow("image")
 	cv2.setMouseCallback("image", shape_selection)
@@ -49,8 +49,9 @@ def create_environment(imageLoaded):
 		elif key == ord("c"):
 			break
 
+def crop_img(img, ref_point):
 	if len(ref_point) == 2:
-		crop_img = clone[ref_point[0][1]:ref_point[1][1], ref_point[0][0]:
+		crop_img = img[ref_point[0][1]:ref_point[1][1], ref_point[0][0]:
 															ref_point[1][0]]
 		cv2.imshow("crop_img", crop_img)
 		cv2.waitKey(0)
