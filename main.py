@@ -10,7 +10,7 @@ from PIL.Image import Resampling
 
 import numpy as np
 
-from classes.draw_and_crop import create_environment, crop_img
+from classes.draw_and_crop import create_environment
 
 class MenuBar(Menu):
     def __init__(self, ad):
