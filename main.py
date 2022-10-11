@@ -27,7 +27,7 @@ class MenuBar(Menu):
         #Tools options (Cut/Select subregion, Search region on image)
         tools = Menu(self, tearoff=0)  
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
-        tools.add_command(label="Search...")  
+        tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
         self.add_cascade(label="Tools", menu=tools) 
 
         #Help options (About the program)
@@ -49,7 +49,7 @@ class ImageOperations:
     # Loads image into the program
     def loadImage(self, path: string):
         img = Image.open(path)
-        img_resized = img.resize((300, 300), Resampling.LANCZOS)
+        img_resized = img.resize((224, 224), Resampling.LANCZOS)
         self.displayImage(img_resized)
         
     # Show the specified 
@@ -59,11 +59,12 @@ class ImageOperations:
 
     # Open the image into canvas 
     def openImage(self):
+        global image, imageTK, filename
+
         filename = askopenfilename()
-        global image, imageTK
         if filename:
             image = Image.open(filename)
-            image = image.resize((300,300), Image.ANTIALIAS)
+            #image = image.resize((300,300), Image.ANTIALIAS)
             imageTK = ImageTk.PhotoImage(image)
             ad.image_area.create_image(0,0, image=imageTK, anchor='nw')
 
@@ -76,8 +77,8 @@ class ImageOperations:
     # Create a rectangle based on the last and current position of the mouse pointer
     def draw_selection(self, event):
         global refs_point
-        ad.image_area.create_rectangle((lasx, lasy, event.x, event.y), width=2, tags="desenho")
-        refs_point = [(lasx, lasy),(event.x,event.y)]
+        ad.image_area.create_rectangle((lasx, lasy, event.x, event.y), width=2, tags="desenho", outline="red")
+        refs_point = [(lasx, lasy), (event.x, event.y)]
         #lasx, lasy = event.x, event.y
 
     # Bind the buttons to select an area to crop
@@ -95,7 +96,9 @@ class ImageOperations:
                                                                 refs_point[1][0]]
             path = asksaveasfilename(defaultextension=".png")
             print(path)
-            cv.imwrite(path, crop_img)
+            if path != "":
+                cv.imwrite(path, crop_img)
+            ad.image_area.delete("desenho")
     
     # Converts an Image object to an cv2 image (matrix)
     def imageTKtoCV2(self, image):
@@ -104,6 +107,40 @@ class ImageOperations:
         open_cv_image = open_cv_image[:, :, ::-1].copy()
         return open_cv_image
 
+    def match_template_cnn(self):
+        ad.image_area.delete("desenho")
+        METHOD = cv.TM_CCOEFF
+
+        img = cv.imread(filename, 0)
+        edged_img = cv.Canny(img, 30, 200)
+        img2 = img.copy()
+
+        template_l = cv.imread("templates/template_L.png", 0)
+        template_r = cv.imread("templates/template_R.png", 0)
+
+        edged_template_l = cv.Canny(template_l, 30, 200)
+        edged_template_r = cv.Canny(template_r, 30, 200)
+
+        w_l, h_l = template_l.shape[::-1]
+        w_r, h_r = template_l.shape[::-1]
+
+        # Apply template Matching
+        res_l = cv.matchTemplate(edged_img, edged_template_l, METHOD)
+        res_r = cv.matchTemplate(edged_img, edged_template_r, METHOD)
+
+        min_val_l, max_val_l, min_loc_l, max_loc_l = cv.minMaxLoc(res_l)
+        min_val_r, max_val_r, min_loc_r, max_loc_r = cv.minMaxLoc(res_r)
+
+        if max_val_r > max_val_l:
+            top_left = max_loc_r
+            bottom_right = (top_left[0] + w_r, top_left[1] + h_r)
+        else:
+            top_left = max_loc_l
+            bottom_right = (top_left[0] + w_l, top_left[1] + h_l)
+
+        ad.image_area.create_rectangle((top_left[0], top_left[1], bottom_right[0], bottom_right[1]), outline="red", width=2, tags="desenho")
+
+
 class MainApp(Tk):
     def __init__(self):
         Tk.__init__(self)
@@ -111,7 +148,7 @@ class MainApp(Tk):
         
         self.config(menu=menubar)
 
-        self.image_area = Canvas(self, width=300, height=300, bg="#C8C8C8")
+        self.image_area = Canvas(self, width=224, height=224, bg="#C8C8C8")
         self.image_area.place(x = 80, y = 50) 
 
         self.result = Label(self, bg="#4f4545", text=resultCNN )
@@ -121,5 +158,5 @@ if __name__ == "__main__":
     resultCNN = "Saudavél"
     ad=MainApp()
     ad.title('ArthritisDetec')
-    ad.geometry('600x600') # Initial Resolution
+    ad.geometry('400x400') # Initial Resolution
     ad.mainloop()
