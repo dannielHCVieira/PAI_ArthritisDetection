@@ -64,9 +64,8 @@ class ImageOperations:
         filename = askopenfilename()
         if filename:
             image = Image.open(filename)
-            #image = image.resize((300,300), Image.ANTIALIAS)
             imageTK = ImageTk.PhotoImage(image)
-            ad.image_area.create_image(0,0, image=imageTK, anchor='nw')
+            ad.image_area.create_image(0, 0, image=imageTK, anchor='nw')
 
     # Get the x,y position of the mouse pointer
     def get_xy(self, event):
@@ -83,11 +82,12 @@ class ImageOperations:
 
     # Bind the buttons to select an area to crop
     def select_area(self):
+        ad.image_area.delete("desenho")
         ad.image_area.bind("<Button-1>", self.get_xy)
         ad.image_area.bind("<ButtonRelease-1>", self.draw_selection)
         ad.image_area.bind("<Button-3>", self.crop_image)
 
-    # Crops and saves an selected area    
+    # Crops and saves a selected area
     def crop_image(self, event):
         global refs_point
         if len(refs_point) == 2:
@@ -96,11 +96,13 @@ class ImageOperations:
                                                                 refs_point[1][0]]
             path = asksaveasfilename(defaultextension=".png")
             print(path)
+            # se um caminho valido foi selecioado salvamos a imagem
             if path != "":
                 cv.imwrite(path, crop_img)
+
             ad.image_area.delete("desenho")
     
-    # Converts an Image object to an cv2 image (matrix)
+    # Converts an Image object to a cv2 image (matrix)
     def imageTKtoCV2(self, image):
         pil_image = image.convert("RGB")
         open_cv_image = np.array(pil_image) 
@@ -108,29 +110,34 @@ class ImageOperations:
         return open_cv_image
 
     def match_template_cnn(self):
+        #apaga possíveis desenhos antigos
         ad.image_area.delete("desenho")
         METHOD = cv.TM_CCOEFF
 
+        #lê novamente a imagem para evitar dados quebrados
         img = cv.imread(filename, 0)
         edged_img = cv.Canny(img, 30, 200)
         img2 = img.copy()
 
+        #carrega template para joelho esquerdo e direito
         template_l = cv.imread("templates/template_L.png", 0)
         template_r = cv.imread("templates/template_R.png", 0)
 
+        #encontra contornos
         edged_template_l = cv.Canny(template_l, 30, 200)
         edged_template_r = cv.Canny(template_r, 30, 200)
 
         w_l, h_l = template_l.shape[::-1]
         w_r, h_r = template_l.shape[::-1]
 
-        # Apply template Matching
+        # aplica o math template em ambas as imagens de template
         res_l = cv.matchTemplate(edged_img, edged_template_l, METHOD)
         res_r = cv.matchTemplate(edged_img, edged_template_r, METHOD)
 
         min_val_l, max_val_l, min_loc_l, max_loc_l = cv.minMaxLoc(res_l)
         min_val_r, max_val_r, min_loc_r, max_loc_r = cv.minMaxLoc(res_r)
 
+        #define qual imagem deu melhor match
         if max_val_r > max_val_l:
             top_left = max_loc_r
             bottom_right = (top_left[0] + w_r, top_left[1] + h_r)
@@ -138,6 +145,7 @@ class ImageOperations:
             top_left = max_loc_l
             bottom_right = (top_left[0] + w_l, top_left[1] + h_l)
 
+        #identifica area com um retângulo
         ad.image_area.create_rectangle((top_left[0], top_left[1], bottom_right[0], bottom_right[1]), outline="red", width=2, tags="desenho")
 
 
@@ -155,7 +163,7 @@ class MainApp(Tk):
 
 if __name__ == "__main__":
     global ad, resultCNN
-    resultCNN = "Saudavél"
+    resultCNN = "Saudável"
     ad=MainApp()
     ad.title('ArthritisDetec')
     ad.geometry('400x400') # Initial Resolution
