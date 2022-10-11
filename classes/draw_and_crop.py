@@ -1,7 +1,6 @@
 import cv2
 
-
-
+# 
 def shape_selection(event, x, y, flags, param):
 	# grab references to the global variables
 	global ref_point, crop
