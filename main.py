@@ -17,20 +17,20 @@ class MenuBar(Menu):
         Menu.__init__(self, ad)
         imageOperations = ImageOperations()
 
-        #File options (Open, Exit)
+        # Opções (Open, Exit)
         file = Menu(self, tearoff=False)
         file.add_command(label="Open", command=imageOperations.openImage)
         file.add_separator()
         file.add_command(label="Exit", underline=1, command=self.quit)
         self.add_cascade(label="File", underline=0, menu=file)
         
-        #Tools options (Cut/Select subregion, Search region on image)
+        #Opções do Tools (Cut/Select subregion, Search region on image)
         tools = Menu(self, tearoff=0)  
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
         tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
         self.add_cascade(label="Tools", menu=tools) 
 
-        #Help options (About the program)
+        #Opções do Help (About the program)
         help = Menu(self, tearoff=0)  
         help.add_command(label="About", command=self.about)  
         self.add_cascade(label="Help", menu=help)
@@ -46,18 +46,18 @@ class MenuBar(Menu):
 
 class ImageOperations:
 
-    # Loads image into the program
+    # Carrega imagens para o programa
     def loadImage(self, path: string):
         img = Image.open(path)
         img_resized = img.resize((224, 224), Resampling.LANCZOS)
         self.displayImage(img_resized)
         
-    # Show the specified 
+    # Mostra a especificação  
     def displayImage(self, img):
         print(type(img))
         create_environment(img)
 
-    # Open the image into canvas 
+    # Abre a imagem no canvas 
     def openImage(self):
         global image, imageTK, filename
 
@@ -67,27 +67,27 @@ class ImageOperations:
             imageTK = ImageTk.PhotoImage(image)
             ad.image_area.create_image(0, 0, image=imageTK, anchor='nw')
 
-    # Get the x,y position of the mouse pointer
+    # Obter a posição x,y do ponteiro do mouse
     def get_xy(self, event):
         ad.image_area.delete("desenho")
         global lasx, lasy
         lasx, lasy = event.x, event.y
 
-    # Create a rectangle based on the last and current position of the mouse pointer
+    # Cria um retângulo com baseado na última e atual posição do ponteiro do mouse
     def draw_selection(self, event):
         global refs_point
         ad.image_area.create_rectangle((lasx, lasy, event.x, event.y), width=2, tags="desenho", outline="red")
         refs_point = [(lasx, lasy), (event.x, event.y)]
         #lasx, lasy = event.x, event.y
 
-    # Bind the buttons to select an area to crop
+    # Vincule os botões para selecionar uma área para cortar
     def select_area(self):
         ad.image_area.delete("desenho")
         ad.image_area.bind("<Button-1>", self.get_xy)
         ad.image_area.bind("<ButtonRelease-1>", self.draw_selection)
         ad.image_area.bind("<Button-3>", self.crop_image)
 
-    # Crops and saves a selected area
+    # Corta e salva a imagem
     def crop_image(self, event):
         global refs_point
         if len(refs_point) == 2:
@@ -102,7 +102,7 @@ class ImageOperations:
 
             ad.image_area.delete("desenho")
     
-    # Converts an Image object to a cv2 image (matrix)
+    # Converte um objeto imagem em uma imagem cv2(matriz)
     def imageTKtoCV2(self, image):
         pil_image = image.convert("RGB")
         open_cv_image = np.array(pil_image) 
@@ -152,7 +152,7 @@ class ImageOperations:
 class MainApp(Tk):
     def __init__(self):
         Tk.__init__(self)
-        menubar = MenuBar(self) # Declaring menu bar
+        menubar = MenuBar(self) # Declara menu bar
         
         self.config(menu=menubar)
 
@@ -166,5 +166,5 @@ if __name__ == "__main__":
     resultCNN = "Saudável"
     ad=MainApp()
     ad.title('ArthritisDetec')
-    ad.geometry('400x400') # Initial Resolution
+    ad.geometry('400x400') # Resolução inicial
     ad.mainloop()
