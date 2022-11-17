@@ -170,6 +170,8 @@ if __name__ == "__main__":
     global ad, resultCNN
     resultCNN = "Saudável"
     ad=MainApp()
-    ad.title('ArthritisDetec')
+    ad.title('D.A.R.X.')
     ad.geometry('400x400') # Resolução inicial
     ad.mainloop()
+
+    # Diagnostico de Artrite por Raio X (DARX)
