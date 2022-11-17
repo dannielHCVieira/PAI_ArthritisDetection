@@ -116,7 +116,9 @@ class ImageOperations:
 
         #lê novamente a imagem para evitar dados quebrados
         img = cv.imread(filename, 0)
-        edged_img = cv.Canny(img, 30, 200)
+        edged_img = cv.adaptiveThreshold(img, 255,
+	cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
+
         img2 = img.copy()
 
         #carrega template para joelho esquerdo e direito
@@ -124,8 +126,11 @@ class ImageOperations:
         template_r = cv.imread("templates/template_R.png", 0)
 
         #encontra contornos
-        edged_template_l = cv.Canny(template_l, 30, 200)
-        edged_template_r = cv.Canny(template_r, 30, 200)
+        edged_template_l = cv.adaptiveThreshold(template_r, 255,
+	cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
+
+        edged_template_r = cv.adaptiveThreshold(template_l, 255,
+	cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
 
         w_l, h_l = template_l.shape[::-1]
         w_r, h_r = template_l.shape[::-1]
