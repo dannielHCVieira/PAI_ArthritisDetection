@@ -112,25 +112,31 @@ class ImageOperations:
     def match_template_cnn(self):
         #apaga possíveis desenhos antigos
         ad.image_area.delete("desenho")
+
+        top_left, bottom_right = self.matchTemplatePrivate(cv.imread(filename, 0))
+
+        #identifica area com um retângulo
+        ad.image_area.create_rectangle((top_left[0], top_left[1], bottom_right[0], bottom_right[1]), outline="red", width=2, tags="desenho")
+
+    def matchTemplatePrivate(self, img):
         METHOD = cv.TM_CCOEFF
 
-        #lê novamente a imagem para evitar dados quebrados
-        img = cv.imread(filename, 0)
+        # lê novamente a imagem para evitar dados quebrados
         edged_img = cv.adaptiveThreshold(img, 255,
-	cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
+                                         cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
 
         img2 = img.copy()
 
-        #carrega template para joelho esquerdo e direito
+        # carrega template para joelho esquerdo e direito
         template_l = cv.imread("templates/template_L.png", 0)
         template_r = cv.imread("templates/template_R.png", 0)
 
-        #encontra contornos
+        # encontra contornos
         edged_template_l = cv.adaptiveThreshold(template_r, 255,
-	cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
+                                                cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
 
         edged_template_r = cv.adaptiveThreshold(template_l, 255,
-	cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
+                                                cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
 
         w_l, h_l = template_l.shape[::-1]
         w_r, h_r = template_l.shape[::-1]
@@ -142,7 +148,7 @@ class ImageOperations:
         min_val_l, max_val_l, min_loc_l, max_loc_l = cv.minMaxLoc(res_l)
         min_val_r, max_val_r, min_loc_r, max_loc_r = cv.minMaxLoc(res_r)
 
-        #define qual imagem deu melhor match
+        # define qual imagem deu melhor match
         if max_val_r > max_val_l:
             top_left = max_loc_r
             bottom_right = (top_left[0] + w_r, top_left[1] + h_r)
@@ -150,9 +156,7 @@ class ImageOperations:
             top_left = max_loc_l
             bottom_right = (top_left[0] + w_l, top_left[1] + h_l)
 
-        #identifica area com um retângulo
-        ad.image_area.create_rectangle((top_left[0], top_left[1], bottom_right[0], bottom_right[1]), outline="red", width=2, tags="desenho")
-
+        return top_left, bottom_right
 
 class MainApp(Tk):
     def __init__(self):
