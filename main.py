@@ -3,11 +3,14 @@ import string
 import tkinter as tk
 from tkinter import *
 from tkinter import messagebox
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+from tkinter.filedialog import askopenfilename, asksaveasfilename, askdirectory
 import cv2 as cv
 from PIL import ImageTk, Image
 from PIL.Image import Resampling
+import threading
 
+import Operations
+from Operations import matchTemplatePrivate
 import numpy as np
 
 from classes.draw_and_crop import create_environment
@@ -20,6 +23,8 @@ class MenuBar(Menu):
         # Opções (Open, Exit)
         file = Menu(self, tearoff=False)
         file.add_command(label="Open", command=imageOperations.openImage)
+        file.add_separator()
+        file.add_command(label="Open Folder", command=imageOperations.openFolder)
         file.add_separator()
         file.add_command(label="Exit", underline=1, command=self.quit)
         self.add_cascade(label="File", underline=0, menu=file)
@@ -57,10 +62,24 @@ class ImageOperations:
         print(type(img))
         create_environment(img)
 
-    # Abre a imagem no canvas 
+    # Abre a imagem no canvas
+    def openFolder(self):
+        global folder
+        folder = askdirectory()
+        #self.preprocess()
+        thread = threading.Thread(target=self.preprocess)
+        thread.start()
+
+
+    def preprocess(self):
+        print(folder + "/train")
+        Operations.preprocess_images(folder + "\\train")
+        print(folder + "/test")
+        Operations.preprocess_images(folder + "\\test")
+        print(folder + "/val")
+        Operations.preprocess_images(folder + "\\val")
     def openImage(self):
         global image, imageTK, filename
-
         filename = askopenfilename()
         if filename:
             image = Image.open(filename)
@@ -113,50 +132,12 @@ class ImageOperations:
         #apaga possíveis desenhos antigos
         ad.image_area.delete("desenho")
 
-        top_left, bottom_right = self.matchTemplatePrivate(cv.imread(filename, 0))
+        top_left, bottom_right = matchTemplatePrivate(cv.imread(filename, 0))
 
         #identifica area com um retângulo
         ad.image_area.create_rectangle((top_left[0], top_left[1], bottom_right[0], bottom_right[1]), outline="red", width=2, tags="desenho")
 
-    def matchTemplatePrivate(self, img):
-        METHOD = cv.TM_CCOEFF
 
-        # lê novamente a imagem para evitar dados quebrados
-        edged_img = cv.adaptiveThreshold(img, 255,
-                                         cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
-
-        img2 = img.copy()
-
-        # carrega template para joelho esquerdo e direito
-        template_l = cv.imread("templates/template_L.png", 0)
-        template_r = cv.imread("templates/template_R.png", 0)
-
-        # encontra contornos
-        edged_template_l = cv.adaptiveThreshold(template_r, 255,
-                                                cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
-
-        edged_template_r = cv.adaptiveThreshold(template_l, 255,
-                                                cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
-
-        w_l, h_l = template_l.shape[::-1]
-        w_r, h_r = template_l.shape[::-1]
-
-        # aplica o math template em ambas as imagens de template
-        res_l = cv.matchTemplate(edged_img, edged_template_l, METHOD)
-        res_r = cv.matchTemplate(edged_img, edged_template_r, METHOD)
-
-        min_val_l, max_val_l, min_loc_l, max_loc_l = cv.minMaxLoc(res_l)
-        min_val_r, max_val_r, min_loc_r, max_loc_r = cv.minMaxLoc(res_r)
-
-        # define qual imagem deu melhor match
-        if max_val_r > max_val_l:
-            top_left = max_loc_r
-            bottom_right = (top_left[0] + w_r, top_left[1] + h_r)
-        else:
-            top_left = max_loc_l
-            bottom_right = (top_left[0] + w_l, top_left[1] + h_l)
-
-        return top_left, bottom_right
 
 class MainApp(Tk):
     def __init__(self):
