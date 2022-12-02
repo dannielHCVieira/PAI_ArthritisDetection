@@ -33,6 +33,22 @@ class MenuBar(Menu):
         tools = Menu(self, tearoff=0)  
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
         tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
+
+        train = Menu(self, tearoff=0)
+        train.add_command(label="Train XGBoost", command=imageOperations.match_template_cnn)
+        train.add_command(label="Train DeepLearning", command=imageOperations.match_template_cnn)
+        train.add_command(label="Train SVM", command=imageOperations.match_template_cnn)
+
+
+        results = Menu(self, tearoff=0)
+        results.add_command(label="Results XGBoost", command=imageOperations.match_template_cnn)
+        results.add_command(label="Results DeepLearning", command=imageOperations.match_template_cnn)
+        results.add_command(label="Results SVM", command=imageOperations.match_template_cnn)
+
+
+        tools.add_cascade(label="Train", menu=train)
+        tools.add_cascade(label="Results", menu=results)
+
         self.add_cascade(label="Tools", menu=tools) 
 
         #Opções do Help (About the program)
