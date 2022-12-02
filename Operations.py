@@ -2,6 +2,11 @@ import os
 
 import cv2 as cv
 from keras_preprocessing.image import img_to_array, array_to_img
+import tensorflow as tf
+
+SVM = tf.keras.models.load_model('models/SVM.h5')
+XG = tf.keras.models.load_model('models/XGBoost.h5')
+DL = tf.keras.models.load_model('models/mobileNet.h5')
 
 
 def matchTemplatePrivate(img):
@@ -44,20 +49,21 @@ def matchTemplatePrivate(img):
 
     return top_left, bottom_right
 
+
 def apply_match_template(image):
     image = img_to_array(image, dtype='uint8')
     print(type(image))
 
     x, y = matchTemplatePrivate(image)
     print(x, y)
-    image = image[x[1]:y[1],x[0]:y[0]]
+    image = image[x[1]:y[1], x[0]:y[0]]
     image = array_to_img(image)
-    image = image.resize((224,224))
-    #image.show()
+    image = image.resize((224, 224))
+    # image.show()
 
     image = img_to_array(image, dtype='uint8')
 
-    return image#cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
+    return image  # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
 
 
 def preprocess_images(dataset_path):
@@ -68,9 +74,9 @@ def preprocess_images(dataset_path):
 
     for folder in os.listdir(dataset_path):
         preprocess_path_sub = preprocessed_path + "\\" + folder
-        for file in os.listdir(os.path.join(dataset_path+"\\"+folder)):
+        for file in os.listdir(os.path.join(dataset_path + "\\" + folder)):
             # equaliza e flipa horizontalmente
-            img = cv.imread(os.path.join(dataset_path+'\\'+folder+"\\"+file), 0)
+            img = cv.imread(os.path.join(dataset_path + '\\' + folder + "\\" + file), 0)
             equ = cv.equalizeHist(img)
             flipped = cv.flip(equ, 1)
 
@@ -79,12 +85,14 @@ def preprocess_images(dataset_path):
                 os.mkdir(preprocess_path_sub)
 
             filename, file_type = file.split(".")
-            filename_eq_path = preprocess_path_sub+"\\"+filename + "_equ." + file_type
+            filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
             filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
 
-            cv.imwrite(preprocess_path_sub +"\\"+ file, img)
+            cv.imwrite(preprocess_path_sub + "\\" + file, img)
             cv.imwrite(filename_eq_path, equ)
             cv.imwrite(filename_eq_flip_path, flipped)
+
+
 
 def count_black_pixels(image):
     # print(cropped)
@@ -94,12 +102,36 @@ def count_black_pixels(image):
     response = cv.countNonZero(bw)
     return IMAGE_SIZE - response
 
+
 def trainXGBoost():
     print("em progresso")
+
+
 def trainSVM():
     print("em progresso")
+
+
 def trainDL():
     print("em progresso")
+
+
+def predict(method, img):
+    """
+    :param method: método a ser utilizado para predizer ["XG","DL","SVM"]
+    :return:
+    """
+    prediction = ""
+
+    if method == "XG":
+        prediction = XG.predict(img)
+    elif method == "DL":
+        prediction = DL.predict(img)
+    else:
+        prediction = SVM.predict(img)
+
+    return prediction
+
+
 def showResults():
     print("em progresso")
     """

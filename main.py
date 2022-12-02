@@ -33,15 +33,20 @@ class MenuBar(Menu):
         # Opções do Tools (Cut/Select subregion, Search region on image)
         tools = Menu(self, tearoff=0)
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
-        tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
+        tools.add_command(label="Search...", command=ImageOperations.match_template_cnn)
 
         train = Menu(self, tearoff=0)
         train.add_command(label="Train XGBoost", command=Operations.trainXGBoost)
         train.add_command(label="Train DeepLearning", command=Operations.trainDL)
         train.add_command(label="Train SVM", command=Operations.trainSVM)
 
+        predict = Menu(self, tearoff=0)
+        predict.add_command(label="Predict XGBoost", command=ImageOperations.predictXGBoost)
+        predict.add_command(label="Predict DeepLearning", command=ImageOperations.predictDL)
+        predict.add_command(label="Predict SVM", command=ImageOperations.predictSVM)
 
         tools.add_cascade(label="Train", menu=train)
+        tools.add_cascade(label="Predict", menu=predict)
 
         tools.add_command(label="Results", command=Operations.showResults)
 
@@ -74,6 +79,22 @@ class ImageOperations:
     def displayImage(self, img):
         print(type(img))
         create_environment(img)
+
+    def predictXGBoost(self):
+        img = cv.imread(filename, 0)
+        img = Operations.apply_match_template(img)
+
+        Operations.predict("XG", img)
+
+    def predictSVM(self):
+        img = cv.imread(filename, 0)
+        img = Operations.apply_match_template(img)
+        Operations.predict("SVM", img)
+
+    def predictDL(self):
+        img = cv.imread(filename, 0)
+        img = Operations.apply_match_template(img)
+        Operations.predict("XG", cv.cvtColor(img, cv.COLOR_GRAY2RGB))
 
     # Abre a imagem no canvas
     def openFolder(self):
