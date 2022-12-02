@@ -93,3 +93,17 @@ def count_black_pixels(image):
     IMAGE_SIZE = 224 * 224
     response = cv.countNonZero(bw)
     return IMAGE_SIZE - response
+
+def trainXGBoost():
+    print("em progresso")
+def trainSVM():
+    print("em progresso")
+def trainDL():
+    print("em progresso")
+def showResults():
+    print("em progresso")
+    """
+    mostra todos os resultados obtidos pelo métodos
+    :param method: XGBoost, DeepLearning,
+    :return:
+    """
