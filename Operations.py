@@ -14,8 +14,8 @@ def matchTemplatePrivate(img):
     img2 = img.copy()
 
     # carrega template para joelho esquerdo e direito
-    template_l = cv.imread("templates/template_L.png", 0)
-    template_r = cv.imread("templates/template_R.png", 0)
+    template_l = cv.imread("../templates/template_L.png", 0)
+    template_r = cv.imread("../templates/template_R.png", 0)
 
     # encontra contornos
     edged_template_l = cv.adaptiveThreshold(template_r, 255,
@@ -75,12 +75,21 @@ def preprocess_images(dataset_path):
             flipped = cv.flip(equ, 1)
 
             # salva esse arquivo na pasta de pre-processados
-            if not os.path.isdir(preprocess_path_sub ):
+            if not os.path.isdir(preprocess_path_sub):
                 os.mkdir(preprocess_path_sub)
 
             filename, file_type = file.split(".")
-            filename_eq_path = preprocess_path_sub+"\\"+file
+            filename_eq_path = preprocess_path_sub+"\\"+filename + "_equ." + file_type
             filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
 
-            cv.imwrite( filename_eq_path, equ)
+            cv.imwrite(preprocess_path_sub +"\\"+ file, img)
+            cv.imwrite(filename_eq_path, equ)
             cv.imwrite(filename_eq_flip_path, flipped)
+
+def count_black_pixels(image):
+    # print(cropped)
+    ret, bw = cv.threshold(image, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU)
+    # count non zero
+    IMAGE_SIZE = 224 * 224
+    response = cv.countNonZero(bw)
+    return IMAGE_SIZE - response

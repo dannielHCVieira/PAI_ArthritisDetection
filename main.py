@@ -78,6 +78,7 @@ class ImageOperations:
         Operations.preprocess_images(folder + "\\test")
         print(folder + "/val")
         Operations.preprocess_images(folder + "\\val")
+        print("finished")
     def openImage(self):
         global image, imageTK, filename
         filename = askopenfilename()
