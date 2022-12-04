@@ -1,6 +1,7 @@
 import os
 
 import cv2 as cv
+import matplotlib
 import numpy as np
 from imutils import paths
 from keras import Sequential
@@ -10,6 +11,8 @@ from keras.utils import load_img, to_categorical
 from keras_preprocessing.image import img_to_array, array_to_img, ImageDataGenerator
 import tensorflow as tf
 from matplotlib import pyplot as plt
+from mlxtend.plotting import plot_confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
 from time import time
 
 SVM = ""  #tf.keras.models.load_model('models/SVM.h5')
@@ -29,7 +32,6 @@ def matchTemplatePrivate(img):
     # carrega template para joelho esquerdo e direito
     template_l = cv.imread("templates\\template_L.png", 0)
     template_r = cv.imread("templates\\template_R.png", 0)
-    print(template_r)
     # encontra contornos
     edged_template_l = cv.adaptiveThreshold(template_l, 255,
                                             cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
@@ -68,9 +70,7 @@ def apply_match_template(image):
     # image.show()
 
     image = img_to_array(image, dtype='uint8')
-    print(image.shape)
-    # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
-    return image
+    return image  # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
 
 
 def preprocess_images(dataset_path):
@@ -78,28 +78,25 @@ def preprocess_images(dataset_path):
 
     if not os.path.isdir(preprocessed_path):
         os.mkdir(preprocessed_path)
+        for folder in os.listdir(dataset_path):
+            preprocess_path_sub = preprocessed_path + "\\" + folder
+            for file in os.listdir(os.path.join(dataset_path + "\\" + folder)):
+                # equaliza e flipa horizontalmente
+                img = cv.imread(os.path.join(dataset_path + '\\' + folder + "\\" + file), 0)
+                equ = cv.equalizeHist(img)
+                flipped = cv.flip(equ, 1)
 
-    for folder in os.listdir(dataset_path):
-        preprocess_path_sub = preprocessed_path + "\\" + folder
-        for file in os.listdir(os.path.join(dataset_path + "\\" + folder)):
-            # equaliza e flipa horizontalmente
-            img = cv.imread(os.path.join(
-                dataset_path + '\\' + folder + "\\" + file), 0)
-            equ = cv.equalizeHist(img)
-            flipped = cv.flip(equ, 1)
+                # salva esse arquivo na pasta de pre-processados
+                if not os.path.isdir(preprocess_path_sub):
+                    os.mkdir(preprocess_path_sub)
 
-            # salva esse arquivo na pasta de pre-processados
-            if not os.path.isdir(preprocess_path_sub):
-                os.mkdir(preprocess_path_sub)
+                filename, file_type = file.split(".")
+                filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
+                filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
 
-            filename, file_type = file.split(".")
-            filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
-            filename_eq_flip_path = preprocess_path_sub + \
-                "\\" + filename + "_flipped." + file_type
-
-            cv.imwrite(preprocess_path_sub + "\\" + file, img)
-            cv.imwrite(filename_eq_path, equ)
-            cv.imwrite(filename_eq_flip_path, flipped)
+                cv.imwrite(preprocess_path_sub + "\\" + file, img)
+                cv.imwrite(filename_eq_path, equ)
+                cv.imwrite(filename_eq_flip_path, flipped)
 
 
 def count_black_pixels(image):
@@ -174,6 +171,102 @@ def trainSVM(path_train, path_val, path_test):
     test_labels = np.array(test_labels)
 
     # ainda não acabou
+
+def testDL(path_test):
+    test_dataset = path_test
+
+    test_images = list(paths.list_images(test_dataset))
+
+    test_data = []
+    test_labels = []
+
+
+    for i in test_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        test_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = apply_match_template(image)
+        image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
+        test_data.append(image)
+
+    test_data = np.array(test_data, dtype='float32')
+    test_labels = np.array(test_labels)
+
+    test_labels = to_categorical(test_labels)
+
+    BS = len(test_data)//10
+
+    aug = ImageDataGenerator()
+    print(len(test_data))
+
+    predict = DL.predict(aug.flow(test_data), batch_size=BS)
+    predict = np.argmax(predict, axis=1)
+    print(predict)
+    print(test_labels)
+    report = classification_report(test_labels.argmax(axis=1), predict, target_names=["0", "1", "2", "3", "4"])
+
+    cm = confusion_matrix(y_true=test_labels.argmax(axis=1), y_pred=predict)
+    fig, ax = plot_confusion_matrix(conf_mat=cm,
+                                    figsize=(6, 6),
+                                    class_names=["0", "1", "2", "3", "4"],
+                                    # cmap='Greys',
+
+                                    norm_colormap=matplotlib.colors.LogNorm())
+
+    plt.xlabel('', fontsize=18)
+    plt.ylabel('', fontsize=18)
+    plt.title('Confusion Matrix', fontsize=18)
+    # plt.show()
+    plt.savefig("results\\cm.png")
+    return report
+
+def testDL(path_test):
+    test_dataset = path_test
+
+    test_images = list(paths.list_images(test_dataset))
+
+    test_data = []
+    test_labels = []
+
+
+    for i in test_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        test_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = apply_match_template(image)
+        image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
+        test_data.append(image)
+
+    test_data = np.array(test_data, dtype='float32')
+    test_labels = np.array(test_labels)
+
+    test_labels = to_categorical(test_labels)
+
+    BS = len(test_data)//10
+
+    aug = ImageDataGenerator()
+    print(len(test_data))
+
+    predict = DL.predict(aug.flow(test_data), batch_size=BS)
+    predict = np.argmax(predict, axis=1)
+    print(predict)
+    print(test_labels)
+    report = classification_report(test_labels.argmax(axis=1), predict, target_names=["0", "1", "2", "3", "4"])
+
+    cm = confusion_matrix(y_true=test_labels.argmax(axis=1), y_pred=predict)
+    fig, ax = plot_confusion_matrix(conf_mat=cm,
+                                    figsize=(6, 6),
+                                    class_names=["0", "1", "2", "3", "4"],
+                                    # cmap='Greys',
+
+                                    norm_colormap=matplotlib.colors.LogNorm())
+
+    plt.xlabel('', fontsize=18)
+    plt.ylabel('', fontsize=18)
+    plt.title('Confusion Matrix', fontsize=18)
+    # plt.show()
+    plt.savefig("results\\cm.png")
+    return report
 
 
 def trainDL(path_train, path_val):
