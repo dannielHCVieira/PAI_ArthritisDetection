@@ -33,15 +33,20 @@ class MenuBar(Menu):
         # Opções do Tools (Cut/Select subregion, Search region on image)
         tools = Menu(self, tearoff=0)
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
-        tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
+        tools.add_command(label="Search...", command=ImageOperations.match_template_cnn)
 
         train = Menu(self, tearoff=0)
-        train.add_command(label="Train XGBoost", command=Operations.trainXGBoost)
-        train.add_command(label="Train DeepLearning", command=Operations.trainDL)
-        train.add_command(label="Train SVM", command=Operations.trainSVM)
+        train.add_command(label="Train XGBoost", command=imageOperations.trainXGBoost)
+        train.add_command(label="Train DeepLearning", command=imageOperations.trainDL)
+        train.add_command(label="Train SVM", command=imageOperations.trainSVM)
 
+        predict = Menu(self, tearoff=0)
+        predict.add_command(label="Predict XGBoost", command=imageOperations.predictXGBoost)
+        predict.add_command(label="Predict DeepLearning", command=imageOperations.predictDL)
+        predict.add_command(label="Predict SVM", command=imageOperations.predictSVM)
 
         tools.add_cascade(label="Train", menu=train)
+        tools.add_cascade(label="Predict", menu=predict)
 
         tools.add_command(label="Results", command=Operations.showResults)
 
@@ -64,6 +69,15 @@ class MenuBar(Menu):
 
 class ImageOperations:
 
+    def trainDL(self):
+        Operations.trainDL(folder + "\\train_preprocessed", folder + "\\val_preprocessed")
+
+
+    def trainXGBoost(self):
+        print("")
+    def trainSVM(self):
+        print("")
+
     # Carrega imagens para o programa
     def loadImage(self, path: string):
         img = Image.open(path)
@@ -75,11 +89,29 @@ class ImageOperations:
         print(type(img))
         create_environment(img)
 
+    def predictXGBoost(self):
+        img = cv.imread(filename, 0)
+        img = Operations.apply_match_template(img)
+
+        Operations.predict("XG", img)
+
+    def predictSVM(self):
+        img = cv.imread(filename, 0)
+        img = Operations.apply_match_template(img)
+        Operations.predict("SVM", img)
+
+    def predictDL(self):
+
+        img = Operations.apply_match_template(image)
+        img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+        print("SHAPE", img.shape)
+        x = Operations.predict("DL", img)
+        print(x)
+
     # Abre a imagem no canvas
     def openFolder(self):
         global folder
         folder = askdirectory()
-        # self.preprocess()
         thread = threading.Thread(target=self.preprocess)
         thread.start()
 
