@@ -220,54 +220,6 @@ def testDL(path_test):
     plt.savefig("results\\cm.png")
     return report
 
-def testDL(path_test):
-    test_dataset = path_test
-
-    test_images = list(paths.list_images(test_dataset))
-
-    test_data = []
-    test_labels = []
-
-
-    for i in test_images:  # adicionar nosso preprocessamento
-        label = i.split(os.path.sep)[-2]
-        test_labels.append(label)
-        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
-        image = apply_match_template(image)
-        image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
-        test_data.append(image)
-
-    test_data = np.array(test_data, dtype='float32')
-    test_labels = np.array(test_labels)
-
-    test_labels = to_categorical(test_labels)
-
-    BS = len(test_data)//10
-
-    aug = ImageDataGenerator()
-    print(len(test_data))
-
-    predict = DL.predict(aug.flow(test_data), batch_size=BS)
-    predict = np.argmax(predict, axis=1)
-    print(predict)
-    print(test_labels)
-    report = classification_report(test_labels.argmax(axis=1), predict, target_names=["0", "1", "2", "3", "4"])
-
-    cm = confusion_matrix(y_true=test_labels.argmax(axis=1), y_pred=predict)
-    fig, ax = plot_confusion_matrix(conf_mat=cm,
-                                    figsize=(6, 6),
-                                    class_names=["0", "1", "2", "3", "4"],
-                                    # cmap='Greys',
-
-                                    norm_colormap=matplotlib.colors.LogNorm())
-
-    plt.xlabel('', fontsize=18)
-    plt.ylabel('', fontsize=18)
-    plt.title('Confusion Matrix', fontsize=18)
-    # plt.show()
-    plt.savefig("results\\cm.png")
-    return report
-
 
 def trainDL(path_train, path_val):
     train_dataset = path_train
