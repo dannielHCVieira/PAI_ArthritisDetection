@@ -15,6 +15,7 @@ from mlxtend.plotting import plot_confusion_matrix
 from sklearn.metrics import classification_report, confusion_matrix
 from time import time
 
+
 SVM = ""  #tf.keras.models.load_model('models/SVM.h5')
 XG = ""  # tf.keras.models.load_model('models/XGBoost.h5')
 DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
@@ -171,6 +172,7 @@ def trainSVM(path_train, path_val, path_test):
     test_labels = np.array(test_labels)
 
     # ainda não acabou
+
 
 def testDL(path_test):
     test_dataset = path_test
