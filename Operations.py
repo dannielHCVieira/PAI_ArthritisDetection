@@ -86,6 +86,7 @@ def preprocess_images(dataset_path):
                 img = cv.imread(os.path.join(dataset_path + '\\' + folder + "\\" + file), 0)
                 equ = cv.equalizeHist(img)
                 flipped = cv.flip(equ, 1)
+                flip_img = cv.flip(img, 1)
 
                 # salva esse arquivo na pasta de pre-processados
                 if not os.path.isdir(preprocess_path_sub):
@@ -94,10 +95,12 @@ def preprocess_images(dataset_path):
                 filename, file_type = file.split(".")
                 filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
                 filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
+                filename_flip_path = preprocess_path_sub + "\\" + filename + "_flipped_only." + file_type
 
                 cv.imwrite(preprocess_path_sub + "\\" + file, img)
                 cv.imwrite(filename_eq_path, equ)
                 cv.imwrite(filename_eq_flip_path, flipped)
+                cv.imwrite(filename_flip_path, flip_img)
 
 
 def count_black_pixels(image):
