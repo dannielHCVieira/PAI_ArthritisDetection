@@ -1,6 +1,7 @@
 from email.mime import image
 import string
 import tkinter as tk
+from time import time
 from tkinter import *
 from tkinter import messagebox
 from tkinter.filedialog import askopenfilename, asksaveasfilename, askdirectory
@@ -33,22 +34,27 @@ class MenuBar(Menu):
         # Opções do Tools (Cut/Select subregion, Search region on image)
         tools = Menu(self, tearoff=0)
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
-        tools.add_command(label="Search...", command=ImageOperations.match_template_cnn)
+        tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
 
         train = Menu(self, tearoff=0)
-        train.add_command(label="Train XGBoost", command=Operations.trainXGBoost)
-        train.add_command(label="Train DeepLearning", command=Operations.trainDL)
-        train.add_command(label="Train SVM", command=Operations.trainSVM)
+        train.add_command(label="Train XGBoost", command=imageOperations.trainXGBoost)
+        train.add_command(label="Train DeepLearning", command=imageOperations.trainDL)
+        train.add_command(label="Train SVM", command=imageOperations.trainSVM)
 
         predict = Menu(self, tearoff=0)
-        predict.add_command(label="Predict XGBoost", command=ImageOperations.predictXGBoost)
-        predict.add_command(label="Predict DeepLearning", command=ImageOperations.predictDL)
-        predict.add_command(label="Predict SVM", command=ImageOperations.predictSVM)
+        predict.add_command(label="Predict XGBoost", command=imageOperations.predictXGBoost)
+        predict.add_command(label="Predict DeepLearning", command=imageOperations.predictDL)
+        predict.add_command(label="Predict SVM", command=imageOperations.predictSVM)
 
         tools.add_cascade(label="Train", menu=train)
         tools.add_cascade(label="Predict", menu=predict)
 
-        tools.add_command(label="Results", command=Operations.showResults)
+        test = Menu(self, tearoff=0)
+        test.add_command(label="Test XGBoost", command=imageOperations.predictXGBoost)
+        test.add_command(label="Test DeepLearning", command=imageOperations.testDL)
+        test.add_command(label="Test SVM", command=imageOperations.predictSVM)
+
+        tools.add_cascade(label="Test", menu=test)
 
         self.add_cascade(label="Tools", menu=tools)
 
@@ -68,6 +74,22 @@ class MenuBar(Menu):
 
 
 class ImageOperations:
+
+    def testDL(self):
+        before = time()
+        report = Operations.testDL(folder + "\\test_preprocessed")
+        spent = time() - before
+        print(spent)
+        print(report)
+
+    def trainDL(self):
+        Operations.trainDL(folder + "\\train_preprocessed", folder + "\\val_preprocessed")
+
+
+    def trainXGBoost(self):
+        print("")
+    def trainSVM(self):
+        print("")
 
     # Carrega imagens para o programa
     def loadImage(self, path: string):
@@ -92,15 +114,16 @@ class ImageOperations:
         Operations.predict("SVM", img)
 
     def predictDL(self):
-        img = cv.imread(filename, 0)
-        img = Operations.apply_match_template(img)
-        Operations.predict("XG", cv.cvtColor(img, cv.COLOR_GRAY2RGB))
+
+        img = Operations.apply_match_template(image)
+        img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+        x = Operations.predict("DL", img)
+        print(x)
 
     # Abre a imagem no canvas
     def openFolder(self):
         global folder
         folder = askdirectory()
-        # self.preprocess()
         thread = threading.Thread(target=self.preprocess)
         thread.start()
 

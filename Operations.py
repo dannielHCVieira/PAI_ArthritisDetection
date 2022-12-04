@@ -1,12 +1,22 @@
 import os
 
 import cv2 as cv
-from keras_preprocessing.image import img_to_array, array_to_img
+import matplotlib
+import numpy as np
+from imutils import paths
+from keras import Sequential
+from keras.layers import Flatten, Dense, Dropout
+from keras.optimizers import Adam
+from keras.utils import load_img, to_categorical
+from keras_preprocessing.image import img_to_array, array_to_img, ImageDataGenerator
 import tensorflow as tf
+from matplotlib import pyplot as plt
+from mlxtend.plotting import plot_confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
 
-SVM = tf.keras.models.load_model('models/SVM.h5')
-XG = tf.keras.models.load_model('models/XGBoost.h5')
-DL = tf.keras.models.load_model('models/mobileNet.h5')
+SVM = ""#tf.keras.models.load_model('models/SVM.h5')
+XG = ""#tf.keras.models.load_model('models/XGBoost.h5')
+DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
 
 
 def matchTemplatePrivate(img):
@@ -19,14 +29,13 @@ def matchTemplatePrivate(img):
     img2 = img.copy()
 
     # carrega template para joelho esquerdo e direito
-    template_l = cv.imread("../templates/template_L.png", 0)
-    template_r = cv.imread("../templates/template_R.png", 0)
-
+    template_l = cv.imread("templates\\template_L.png", 0)
+    template_r = cv.imread("templates\\template_R.png", 0)
     # encontra contornos
-    edged_template_l = cv.adaptiveThreshold(template_r, 255,
+    edged_template_l = cv.adaptiveThreshold(template_l, 255,
                                             cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
 
-    edged_template_r = cv.adaptiveThreshold(template_l, 255,
+    edged_template_r = cv.adaptiveThreshold(template_r, 255,
                                             cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10)
 
     w_l, h_l = template_l.shape[::-1]
@@ -52,17 +61,14 @@ def matchTemplatePrivate(img):
 
 def apply_match_template(image):
     image = img_to_array(image, dtype='uint8')
-    print(type(image))
 
     x, y = matchTemplatePrivate(image)
-    print(x, y)
     image = image[x[1]:y[1], x[0]:y[0]]
     image = array_to_img(image)
     image = image.resize((224, 224))
     # image.show()
 
     image = img_to_array(image, dtype='uint8')
-
     return image  # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
 
 
@@ -71,27 +77,25 @@ def preprocess_images(dataset_path):
 
     if not os.path.isdir(preprocessed_path):
         os.mkdir(preprocessed_path)
+        for folder in os.listdir(dataset_path):
+            preprocess_path_sub = preprocessed_path + "\\" + folder
+            for file in os.listdir(os.path.join(dataset_path + "\\" + folder)):
+                # equaliza e flipa horizontalmente
+                img = cv.imread(os.path.join(dataset_path + '\\' + folder + "\\" + file), 0)
+                equ = cv.equalizeHist(img)
+                flipped = cv.flip(equ, 1)
 
-    for folder in os.listdir(dataset_path):
-        preprocess_path_sub = preprocessed_path + "\\" + folder
-        for file in os.listdir(os.path.join(dataset_path + "\\" + folder)):
-            # equaliza e flipa horizontalmente
-            img = cv.imread(os.path.join(dataset_path + '\\' + folder + "\\" + file), 0)
-            equ = cv.equalizeHist(img)
-            flipped = cv.flip(equ, 1)
+                # salva esse arquivo na pasta de pre-processados
+                if not os.path.isdir(preprocess_path_sub):
+                    os.mkdir(preprocess_path_sub)
 
-            # salva esse arquivo na pasta de pre-processados
-            if not os.path.isdir(preprocess_path_sub):
-                os.mkdir(preprocess_path_sub)
+                filename, file_type = file.split(".")
+                filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
+                filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
 
-            filename, file_type = file.split(".")
-            filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
-            filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
-
-            cv.imwrite(preprocess_path_sub + "\\" + file, img)
-            cv.imwrite(filename_eq_path, equ)
-            cv.imwrite(filename_eq_flip_path, flipped)
-
+                cv.imwrite(preprocess_path_sub + "\\" + file, img)
+                cv.imwrite(filename_eq_path, equ)
+                cv.imwrite(filename_eq_flip_path, flipped)
 
 
 def count_black_pixels(image):
@@ -110,9 +114,140 @@ def trainXGBoost():
 def trainSVM():
     print("em progresso")
 
+def testDL(path_test):
+    test_dataset = path_test
 
-def trainDL():
-    print("em progresso")
+    test_images = list(paths.list_images(test_dataset))
+
+    test_data = []
+    test_labels = []
+
+
+    for i in test_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        test_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = apply_match_template(image)
+        image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
+        test_data.append(image)
+
+    test_data = np.array(test_data, dtype='float32')
+    test_labels = np.array(test_labels)
+
+    test_labels = to_categorical(test_labels)
+
+    BS = len(test_data)//10
+
+    aug = ImageDataGenerator()
+    print(len(test_data))
+
+    predict = DL.predict(aug.flow(test_data), batch_size=BS)
+    predict = np.argmax(predict, axis=1)
+    print(predict)
+    print(test_labels)
+    report = classification_report(test_labels.argmax(axis=1), predict, target_names=["0", "1", "2", "3", "4"])
+
+    cm = confusion_matrix(y_true=test_labels.argmax(axis=1), y_pred=predict)
+    fig, ax = plot_confusion_matrix(conf_mat=cm,
+                                    figsize=(6, 6),
+                                    class_names=["0", "1", "2", "3", "4"],
+                                    # cmap='Greys',
+
+                                    norm_colormap=matplotlib.colors.LogNorm())
+
+    plt.xlabel('', fontsize=18)
+    plt.ylabel('', fontsize=18)
+    plt.title('Confusion Matrix', fontsize=18)
+    # plt.show()
+    plt.savefig("results\\cm.png")
+    return report
+
+
+def trainDL(path_train, path_val):
+    train_dataset = path_train
+    val_dataset = path_val
+
+    train_images = list(paths.list_images(train_dataset))
+    val_images = list(paths.list_images(val_dataset))
+
+    train_data = []
+    train_labels = []
+
+    val_data = []
+    val_labels = []
+
+    for i in train_images:  #carrega imagens e preprocessa
+        label = i.split(os.path.sep)[-2]
+        train_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = apply_match_template(image)
+        train_data.append(image)
+
+    for i in val_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        val_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = apply_match_template(image)
+        val_data.append(image)
+
+    train_data = np.array(train_data, dtype='float32')
+    train_labels = np.array(train_labels)
+
+    train_labels = to_categorical(train_labels)
+    val_labels = to_categorical(val_labels)
+
+    aug = ImageDataGenerator()
+
+    lr = 0.000005
+    Epochs = 100
+    BS = 128
+
+    opt = Adam(learning_rate=lr)
+    base_model = tf.keras.applications.MobileNetV3Small(input_shape=(224, 224, 3),
+                                                        include_top=False,
+                                                        weights='imagenet')
+    base_model.trainable = False
+
+    #cria modelo especificado
+    model = Sequential([base_model,
+                        Flatten(),
+                        Dense(1024, activation='leaky_relu'),
+                        Dropout(0.5),
+                        Dense(512, activation='leaky_relu'),
+                        Dropout(0.5),
+                        Dense(512, activation='leaky_relu'),
+                        Dropout(0.5),
+                        Dense(5, activation='softmax')])  # 1024,64,0.2
+    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+
+    from time import time
+
+    #treina, calculando o tempo gasto para isso
+    now = time()
+    history = model.fit(
+        aug.flow(train_data, train_labels, batch_size=BS),
+        steps_per_epoch=len(train_data) // BS,
+        validation_data=(val_data, val_labels),
+        validation_steps=len(val_data) // BS,
+        epochs=Epochs,
+        class_weight={0: 1, 1: 4, 2: 2, 3: 4, 4: 9}
+    )
+    print(time() - now)
+
+    acc_train = history.history['accuracy']
+    acc_val = history.history['val_accuracy']
+
+    epochs = range(1, 101)
+    plt.plot(epochs, acc_train, 'g', label='Training accuracy')
+    plt.plot(epochs, acc_val, 'b', label='validation accuracy')
+    plt.title('Training and Validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    # plt.show()
+    plt.savefig("results\\accuracy.png")
+    model.save('.\\trained_model_mobileNet.h5')
+
 
 
 def predict(method, img):
@@ -120,16 +255,15 @@ def predict(method, img):
     :param method: método a ser utilizado para predizer ["XG","DL","SVM"]
     :return:
     """
-    prediction = ""
-
     if method == "XG":
         prediction = XG.predict(img)
     elif method == "DL":
-        prediction = DL.predict(img)
+        prediction = DL(img.reshape((1, 224, 224, 3)))
+        print(prediction.numpy().argmax())
     else:
         prediction = SVM.predict(img)
 
-    return prediction
+    return prediction.numpy().argmax()
 
 
 def showResults():
