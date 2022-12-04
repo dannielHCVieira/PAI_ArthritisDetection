@@ -10,9 +10,10 @@ from keras.utils import load_img, to_categorical
 from keras_preprocessing.image import img_to_array, array_to_img, ImageDataGenerator
 import tensorflow as tf
 from matplotlib import pyplot as plt
+from time import time
 
-SVM = ""#tf.keras.models.load_model('models/SVM.h5')
-XG = ""#tf.keras.models.load_model('models/XGBoost.h5')
+SVM = ""  #tf.keras.models.load_model('models/SVM.h5')
+XG = ""  # tf.keras.models.load_model('models/XGBoost.h5')
 DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
 
 
@@ -68,7 +69,8 @@ def apply_match_template(image):
 
     image = img_to_array(image, dtype='uint8')
     print(image.shape)
-    return image  # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
+    # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
+    return image
 
 
 def preprocess_images(dataset_path):
@@ -81,7 +83,8 @@ def preprocess_images(dataset_path):
         preprocess_path_sub = preprocessed_path + "\\" + folder
         for file in os.listdir(os.path.join(dataset_path + "\\" + folder)):
             # equaliza e flipa horizontalmente
-            img = cv.imread(os.path.join(dataset_path + '\\' + folder + "\\" + file), 0)
+            img = cv.imread(os.path.join(
+                dataset_path + '\\' + folder + "\\" + file), 0)
             equ = cv.equalizeHist(img)
             flipped = cv.flip(equ, 1)
 
@@ -91,7 +94,8 @@ def preprocess_images(dataset_path):
 
             filename, file_type = file.split(".")
             filename_eq_path = preprocess_path_sub + "\\" + filename + "_equ." + file_type
-            filename_eq_flip_path = preprocess_path_sub + "\\" + filename + "_flipped." + file_type
+            filename_eq_flip_path = preprocess_path_sub + \
+                "\\" + filename + "_flipped." + file_type
 
             cv.imwrite(preprocess_path_sub + "\\" + file, img)
             cv.imwrite(filename_eq_path, equ)
@@ -107,12 +111,69 @@ def count_black_pixels(image):
     return IMAGE_SIZE - response
 
 
-def trainXGBoost():
-    print("em progresso")
+def processImage(image):
+    image = img_to_array(image, dtype='uint8')
+    x, y = matchTemplatePrivate(image)
+    image = image[x[1]:y[1], x[0]:y[0]]
+    image = array_to_img(image)
+    image = image.resize((224, 224))
+    image = img_to_array(image)
+    return cv.cvtColor(image, cv.COLOR_GRAY2RGB)
 
 
-def trainSVM():
-    print("em progresso")
+def trainXGBoost(path_train, path_val, path_test):
+    train_dataset = path_train
+    val_dataset = path_val
+    test_dataset = path_test
+
+
+def trainSVM(path_train, path_val, path_test):
+    train_dataset = path_train
+    val_dataset = path_val
+    test_dataset = path_test
+
+    train_images = list(paths.list_images(train_dataset))
+    val_images = list(paths.list_images(val_dataset))
+    test_images = list(paths.list_images(test_dataset))
+
+    train_data = []
+    train_labels = []
+    val_data = []
+    val_labels = []
+    test_data = []
+    test_labels = []
+
+    for i in train_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        train_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = processImage(image)
+        train_data.append(image)
+
+    for i in val_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        val_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = processImage(image)
+        val_data.append(image)
+
+    for i in test_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        test_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = processImage(image)
+        test_data.append(image)
+
+    train_data = np.array(train_data, dtype='uint8')
+    train_labels = np.array(train_labels)
+
+    val_data = np.array(val_data, dtype='uint8')
+    val_labels = np.array(val_labels)
+
+    test_data = np.array(test_data, dtype='uint8')
+    test_labels = np.array(test_labels)
+
+    # ainda não acabou
 
 
 def trainDL(path_train, path_val):
@@ -128,7 +189,7 @@ def trainDL(path_train, path_val):
     val_data = []
     val_labels = []
 
-    for i in train_images:  #carrega imagens e preprocessa
+    for i in train_images:  # carrega imagens e preprocessa
         label = i.split(os.path.sep)[-2]
         train_labels.append(label)
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
@@ -160,7 +221,7 @@ def trainDL(path_train, path_val):
                                                         weights='imagenet')
     base_model.trainable = False
 
-    #cria modelo especificado
+    # cria modelo especificado
     model = Sequential([base_model,
                         Flatten(),
                         Dense(1024, activation='leaky_relu'),
@@ -170,11 +231,10 @@ def trainDL(path_train, path_val):
                         Dense(512, activation='leaky_relu'),
                         Dropout(0.5),
                         Dense(5, activation='softmax')])  # 1024,64,0.2
-    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=opt, metrics=['accuracy'])
 
-    from time import time
-
-    #treina, calculando o tempo gasto para isso
+    # treina, calculando o tempo gasto para isso
     now = time()
     history = model.fit(
         aug.flow(train_data, train_labels, batch_size=BS),
@@ -201,19 +261,20 @@ def trainDL(path_train, path_val):
     model.save('.\\trained_model_mobileNet.h5')
 
 
-
 def predict(method, img):
     """
     :param method: método a ser utilizado para predizer ["XG","DL","SVM"]
     :return:
     """
     if method == "XG":
-        prediction = XG.predict(img)
+        prediction = XG.predict(img.reshape((1, 224, 224, 3)))
+        print(prediction.numpy().argmax())
     elif method == "DL":
         prediction = DL(img.reshape((1, 224, 224, 3)))
         print(prediction.numpy().argmax())
     else:
-        prediction = SVM.predict(img)
+        prediction = SVM.predict(img.reshape((1, 224, 224, 3)))
+        print(prediction.numpy().argmax())
 
     return prediction.numpy().argmax()
 
