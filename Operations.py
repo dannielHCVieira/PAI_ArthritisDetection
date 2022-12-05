@@ -51,7 +51,7 @@ from imutils import contours
 from sklearn.impute import SimpleImputer
 from xgboost import XGBRegressor, XGBClassifier
 from sklearn.metrics import mean_absolute_error
-from sklearn.metrics import plot_confusion_matrix, confusion_matrix
+from sklearn.metrics import confusion_matrix
 import pandas as pd
 from time import time
 
@@ -268,13 +268,17 @@ def testXGBoost(path_test):
     test_data=[]
     test_labels=[]
 
+    print("Loading Images...", end="")
     for i in test_images:#adicionar nosso preprocessamento
         label=i.split(os.path.sep)[-2]
         test_labels.append(label)
         image = load_img(i,target_size=(224,224), color_mode="grayscale")
         image = processImage(image)
         test_data.append(image)
-    
+    print("OK!")
+
+
+    print("Processing images...", end="")
     test_data=np.array(test_data, dtype='uint8')
     test_labels=np.array(test_labels)
 
@@ -286,15 +290,23 @@ def testXGBoost(path_test):
 
     test_labels = np.array(test_labels, dtype=object)
     test_labels_int = test_labels.astype(np.dtype(np.int_))
+    
+    print("OK!")
 
+    print("Loading model...",end="")
     xgb_model = pickle.load(open('models/XGBoost.h5','rb'))
+    print("OK!")
 
+    print("Testing model...",end="")
     xgb_predictions = xgb_model.predict(test_data_table)
+    print("OK!")
 
+    print("Generating Confusion Matrix...",end="")
     fig = plot_confusion_matrix(xgb_model, test_data_table, test_labels_int, cmap='Blues')
     plt.xlabel('', fontsize=18)
     plt.ylabel('', fontsize=18)
-    plt.savefig("results\\svm_cm.png")
+    plt.savefig("results\\xgb_cm.png")
+    print("OK!")
 
     report = classification_report(test_labels_int, xgb_predictions, target_names=["0", "1", "2", "3", "4"])
     return report
@@ -307,12 +319,17 @@ def trainXGBoost(path_train):
     train_data = []
     train_labels = []
 
+    print("Loading Images...", end="")
     for i in train_images:  # adicionar nosso preprocessamento
         label = i.split(os.path.sep)[-2]
         train_labels.append(label)
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
         image = processImage(image)
         train_data.append(image)
+
+    print("OK!")
+
+    print("Processing images..." ,end="")
 
     train_data = np.array(train_data, dtype='uint8')
     train_labels = np.array(train_labels)
@@ -327,7 +344,11 @@ def trainXGBoost(path_train):
     train_data_np = np.array(train_data_table, dtype=object)
     train_labels = np.array(train_labels, dtype=object)
     train_labels_int = train_labels.astype(np.dtype(np.int_))
+
+    print("OK!")
+
     
+    print("Training model...", end="")
     now = time()
     xgb_model = XGBClassifier(n_estimators = 650,
                       max_depth = 10,
@@ -337,21 +358,29 @@ def trainXGBoost(path_train):
                      )
     now = time()
     xgb_history = xgb_model.fit(train_data_np, train_labels_int, verbose=False)
-    print(time() - now)
-    xgb_filename = '../models/XGBoost.h5'
-    pickle.dump(xgb_model, open(xgb_filename,
-                            'wb'))
+    total = time() - now
+    print("OK!")
+
+
+    xgb_filename = 'models/XGBoost.h5'
+    pickle.dump(xgb_model, open(xgb_filename,'wb'))
+    print("Model saved!")
     loadModel()
 
+    print("Total time: " + total + "s")
 
 def testSVM(path_test):
     test_dataset = path_test
+    print("Loading Images...", end="")
 
     test_images=list(paths.list_images(test_dataset))
 
     test_data=[]
     test_labels=[]
 
+    print("OK!")
+
+    print("Processing images..." ,end="")
     for i in test_images:#adicionar nosso preprocessamento
         label=i.split(os.path.sep)[-2]
         test_labels.append(label)
@@ -367,22 +396,39 @@ def testSVM(path_test):
         media, menor = find_distance_between_bones(data)
         count_black = count_black_pixels(data)
         test_data_table.append((media,menor,count_black))
-    
+    print("OK!")
+
+    print("Loading model...",end="")
     svm_model = pickle.load(open('models/SVM.h5','rb'))
+    print("OK!")
 
+    print("Testing model...",end="")
     svm_predict = svm_model.predict(test_data_table)
+    print("OK!")
 
-    fig = plot_confusion_matrix(svm_model, test_data_table, test_labels, cmap='Blues')
+    print("Generating Confusion Matrix...",end="")
+
+    cm = confusion_matrix(y_true=test_labels, y_pred=svm_predict)
+    fig = plot_confusion_matrix(conf_mat=cm,
+                                    figsize=(6, 6),
+                                    class_names=["0", "1", "2", "3", "4"],
+                                    # cmap='Greys',
+
+                                    norm_colormap=matplotlib.colors.LogNorm())
+
+    #fig = plot_confusion_matrix(svm_model, test_data_table, test_labels, cmap='Blues')
     plt.xlabel('', fontsize=18)
     plt.ylabel('', fontsize=18)
+    plt.title('Confusion Matrix', fontsize=18)
     plt.savefig("results\\svm_cm.png")
+    print("OK!")
 
     report = classification_report(test_labels ,svm_predict, target_names=["0", "1", "2", "3", "4"])
     return report
 
 def trainSVM(path_train):
     train_dataset = path_train
-
+    print("Loading Images...", end="")
     train_images = list(paths.list_images(train_dataset))
 
     train_data = []
@@ -394,7 +440,9 @@ def trainSVM(path_train):
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
         image = processImage(image)
         train_data.append(image)
+    print("OK!")
 
+    print("Processing images..." ,end="")
     train_data = np.array(train_data, dtype='uint8')
     train_labels = np.array(train_labels)
 
@@ -404,24 +452,35 @@ def trainSVM(path_train):
         media, menor = find_distance_between_bones(data)
         count_black = count_black_pixels(data)
         train_data_table.append((media,menor,count_black))
+    print("OK!")
 
+    print("Training model...", end="")
     now = time()
     svm_model = SVC(kernel='rbf', class_weight='balanced').fit(train_data_table, train_labels)
-    print(now - time())
+    total = now - time()
 
-    svm_filename = '../models/SVM.h5'
+    print("OK!")
+
+
+    svm_filename = 'models/SVM.h5'
     pickle.dump(svm_model, open(svm_filename, 'wb'))
     loadModel()
 
+    print("Model saved!")
+    print("Total time: " + str(total) + "s")
+
 def testDL(path_test):
+
+    print("Loading Images...", end="")
     test_dataset = path_test
 
     test_images = list(paths.list_images(test_dataset))
 
     test_data = []
     test_labels = []
+    print("OK!")
 
-
+    print("Processing images..." ,end="")
     for i in test_images:  # adicionar nosso preprocessamento
         label = i.split(os.path.sep)[-2]
         test_labels.append(label)
@@ -435,19 +494,30 @@ def testDL(path_test):
 
     test_labels = to_categorical(test_labels)
 
+    print("OK!")
+
     BS = len(test_data)//10
+
+    print("Loading model...",end="")
 
     aug = ImageDataGenerator()
     print(len(test_data))
+
+    print("OK!")
+
+    print("Testing model...",end="")
 
     predict = DL.predict(aug.flow(test_data), batch_size=BS)
     predict = np.argmax(predict, axis=1)
     print(predict)
     print(test_labels)
+
+    print("OK!")
     report = classification_report(test_labels.argmax(axis=1), predict, target_names=["0", "1", "2", "3", "4"])
 
+    print("Generating Confusion Matrix...",end="")
     cm = confusion_matrix(y_true=test_labels.argmax(axis=1), y_pred=predict)
-    fig, ax = plot_confusion_matrix(conf_mat=cm,
+    fig = plot_confusion_matrix(conf_mat=cm,
                                     figsize=(6, 6),
                                     class_names=["0", "1", "2", "3", "4"],
                                     # cmap='Greys',
@@ -458,14 +528,16 @@ def testDL(path_test):
     plt.ylabel('', fontsize=18)
     plt.title('Confusion Matrix', fontsize=18)
     # plt.show()
-    plt.savefig("results\\cm.png")
+    plt.savefig("results\\dl_cm.png")
+    print("OK!")
+
     return report
 
-
 def trainDL(path_train, path_val):
+    print("Loading Images...", end="")
     train_dataset = path_train
     val_dataset = path_val
-
+    
     train_images = list(paths.list_images(train_dataset))
     val_images = list(paths.list_images(val_dataset))
 
@@ -475,11 +547,16 @@ def trainDL(path_train, path_val):
     val_data = []
     val_labels = []
 
+    print("OK!")
+
+    print("Processing images..." ,end="")
+
     for i in train_images:  # carrega imagens e preprocessa
         label = i.split(os.path.sep)[-2]
         train_labels.append(label)
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
         image = apply_match_template(image)
+        image = cv.cvtColor(image,cv.COLOR_GRAY2RGB)
         train_data.append(image)
 
     for i in val_images:  # adicionar nosso preprocessamento
@@ -487,7 +564,10 @@ def trainDL(path_train, path_val):
         val_labels.append(label)
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
         image = apply_match_template(image)
+        image = cv.cvtColor(image,cv.COLOR_GRAY2RGB)
         val_data.append(image)
+
+    print("OK!")
 
     train_data = np.array(train_data, dtype='float32')
     train_labels = np.array(train_labels)
@@ -497,28 +577,29 @@ def trainDL(path_train, path_val):
 
     aug = ImageDataGenerator()
 
-    lr = 0.000005
-    Epochs = 100
-    BS = 128
+    print("Training model...", end="")
 
-    opt = Adam(learning_rate=lr)
-    base_model = tf.keras.applications.MobileNetV3Small(input_shape=(224, 224, 3),
-                                                        include_top=False,
-                                                        weights='imagenet')
+    lr=0.005
+    Epochs=20
+    BS=64
+
+    opt=SGD(learning_rate=lr, decay=lr)
+    base_model = tf.keras.applications.MobileNetV3Large(input_shape=(224, 224, 3),
+                                                include_top=False,
+                                                weights='imagenet',
+                                                    classifier_activation="leaky_relu")
     base_model.trainable = False
 
-    # cria modelo especificado
     model = Sequential([base_model,
                         Flatten(),
-                        Dense(1024, activation='leaky_relu'),
-                        Dropout(0.5),
-                        Dense(512, activation='leaky_relu'),
-                        Dropout(0.5),
-                        Dense(512, activation='leaky_relu'),
-                        Dropout(0.5),
-                        Dense(5, activation='softmax')])  # 1024,64,0.2
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=opt, metrics=['accuracy'])
+                        Dense(1000, activation='relu'),
+                        #Dropout(0.3),
+                        Dense(700, activation='relu'),
+                        #Dropout(0.3),
+                        Dense(500, activation='relu'),
+                        #Dropout(0.3),
+                        Dense(5, activation='softmax')])#1024,64,0.2
+    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
     # treina, calculando o tempo gasto para isso
     now = time()
@@ -528,7 +609,7 @@ def trainDL(path_train, path_val):
         validation_data=(val_data, val_labels),
         validation_steps=len(val_data) // BS,
         epochs=Epochs,
-        class_weight={0: 1, 1: 4, 2: 2, 3: 4, 4: 9}
+        class_weight={0:0.50551181, 1:1.10478011, 2: 0.76226913, 3:1.52655218, 4: 6.67976879}
     )
     print(time() - now)
 
@@ -547,24 +628,29 @@ def trainDL(path_train, path_val):
     model.save('.\\trained_model_mobileNet.h5')
     loadModel()
 
-
 def predict(method, img):
     """
     :param method: método a ser utilizado para predizer ["XG","DL","SVM"]
     :return:
     """
     if method == "XG":
-        prediction = XG.predict(img.reshape((1, 224, 224, 3)))
-        print(prediction.numpy().argmax())
+        #img = img.reshape((1, 224, 224, 3))
+        img_table = extractDescriptors(img)
+        prediction = XG.predict([img_table])
+        return prediction[0]
     elif method == "DL":
         prediction = DL(img.reshape((1, 224, 224, 3)))
-        print(prediction.numpy().argmax())
     else:
-        prediction = SVM.predict(img.reshape((1, 224, 224, 3)))
-        print(prediction.numpy().argmax())
+        img_table = extractDescriptors(img)
+        prediction = SVM.predict([img_table])
+        return prediction[0]
 
     return prediction.numpy().argmax()
 
+def extractDescriptors(data):
+    media, menor = find_distance_between_bones(data)
+    count_black = count_black_pixels(data)
+    return (media,menor,count_black)
 
 def showResults():
     print("em progresso")

@@ -5,6 +5,8 @@ from time import time
 from tkinter import *
 from tkinter import messagebox
 from tkinter.filedialog import askopenfilename, asksaveasfilename, askdirectory
+from tkinter.scrolledtext import ScrolledText
+
 import cv2 as cv
 from PIL import ImageTk, Image
 from PIL.Image import Resampling
@@ -13,6 +15,8 @@ import threading
 import Operations
 from Operations import matchTemplatePrivate
 import numpy as np
+
+import sys
 
 from classes.draw_and_crop import create_environment
 
@@ -50,9 +54,9 @@ class MenuBar(Menu):
         tools.add_cascade(label="Predict", menu=predict)
 
         test = Menu(self, tearoff=0)
-        test.add_command(label="Test XGBoost", command=imageOperations.predictXGBoost)
+        test.add_command(label="Test XGBoost", command=imageOperations.testXGBoost)
         test.add_command(label="Test DeepLearning", command=imageOperations.testDL)
-        test.add_command(label="Test SVM", command=imageOperations.predictSVM)
+        test.add_command(label="Test SVM", command=imageOperations.testSVM)
 
         tools.add_cascade(label="Test", menu=test)
 
@@ -76,20 +80,56 @@ class MenuBar(Menu):
 class ImageOperations:
 
     def testDL(self):
+        thread = threading.Thread(target=self.testDLThread)
+        thread.start()
+
+    def testDLThread(self):
         before = time()
         report = Operations.testDL(folder + "\\test_preprocessed")
         spent = time() - before
-        print(spent)
+        print("Total time to test: " + str(spent) + " s")
+        print("Testing metrics:")
         print(report)
+        self.showCM('DL')
+    
+    def testXGBoost(self):
+        thread = threading.Thread(target=self.testXGBoostThread)
+        thread.start()
+
+    def testXGBoostThread(self):
+        before = time()
+        report = Operations.testXGBoost(folder + "\\test_preprocessed")
+        spent = time() - before
+        print("Total time to test: " + str(spent) + " s")
+        print("Testing metrics:")
+        print(report)
+        self.showCM('XGB')
+
+    def testSVM(self):
+        thread = threading.Thread(target=self.testSVMThread)
+        thread.start()
+
+    def testSVMThread(self):
+        before = time()
+        report = Operations.testSVM(folder + "\\test_preprocessed")
+        spent = time() - before
+        print("Total time to test: " + str(spent) + " s")
+        print("Testing metrics:")
+        print(report)
+        self.showCM('SVM')
 
     def trainDL(self):
-        Operations.trainDL(folder + "\\train_preprocessed", folder + "\\val_preprocessed")
+        thread = threading.Thread(target=Operations.trainDL, args=(folder + "\\train_preprocessed", folder + "\\val_preprocessed"))
+        thread.start()
 
     def trainXGBoost(self):
-        Operations.trainXGBoost(folder + "\\train_preprocessed")
+        thread = threading.Thread(target=Operations.trainXGBoost, args=(folder + "\\train_preprocessed",))
+        thread.start()
+        #Operations.trainXGBoost(folder + "\\train_preprocessed")
 
     def trainSVM(self):
-        Operations.trainSVM(folder + "\\train_preprocessed")
+        thread = threading.Thread(target=Operations.trainSVM, args=(folder + "\\train_preprocessed",))
+        thread.start()
 
     # Carrega imagens para o programa
     def loadImage(self, path: string):
@@ -101,23 +141,40 @@ class ImageOperations:
     def displayImage(self, img):
         print(type(img))
         create_environment(img)
+    
+    def showCM(self, type: string):
+        img = cv.imread("results/"+ type.lower() +"_cm.png")
+        cv.imshow(type, img)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
     def predictXGBoost(self):
-        img = cv.imread(filename, 0)
-        img = Operations.apply_match_template(img)
+        img = Operations.apply_match_template(image)
+        img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+        class_pred = Operations.predict("XG", img)
+        self.classify_image(class_pred)
 
-        Operations.predict("XG", img)
 
     def predictSVM(self):
-        img = cv.imread(filename, 0)
-        img = Operations.apply_match_template(img)
-        Operations.predict("SVM", img)
+        img = Operations.apply_match_template(image)
+        img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+        class_pred = Operations.predict("SVM", img)
+        self.classify_image(class_pred)
 
     def predictDL(self):
         img = Operations.apply_match_template(image)
         img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
-        x = Operations.predict("DL", img)
-        print(x)
+        class_pred = Operations.predict("DL", img)
+        self.classify_image(class_pred)
+
+    def classify_image(self, class_pred: int): 
+        if class_pred > 1:
+            print("Osteoarthritis detected. Class " + str(class_pred))
+        else:
+            print("No osteoarthritis detected.", end="")
+            if(class_pred == 1):
+                print(" Doubtful joint space narrowing. Risk of evolving into Osteoarthritis.", end="")
+            print(" Class " + str(class_pred))
 
     # Abre a imagem no canvas
     def openFolder(self):
@@ -133,7 +190,7 @@ class ImageOperations:
         Operations.preprocess_images(folder + "\\test")
         print(folder + "/val")
         Operations.preprocess_images(folder + "\\val")
-        print("finished")
+        print("Finished!")
 
     def openImage(self):
         global image, imageTK, filename
@@ -196,25 +253,47 @@ class ImageOperations:
                                        width=2, tags="desenho")
 
 
+# Link https://stackoverflow.com/questions/68198575/how-can-i-displaymy-console-output-in-tkinter
+class PrintLogger(object):  # create file like object
+    def __init__(self, textbox):  # pass reference to text widget
+        self.textbox = textbox  # keep ref
+
+    def write(self, text):
+        self.textbox.configure(state="normal")  # make field editable
+        self.textbox.insert("end", text)  # write text to textbox
+        self.textbox.see("end")  # scroll to end
+        self.textbox.configure(state="disabled")  # make field readonly
+
+    def flush(self):  # needed for file like object
+        pass
+
 class MainApp(Tk):
     def __init__(self):
-        Tk.__init__(self)
+        Tk.__init__(self)   
+        self.root = Frame(self)
+        self.root.pack(fill=BOTH, expand=YES)
         menubar = MenuBar(self)  # Declara menu bar
 
         self.config(menu=menubar)
 
-        self.image_area = Canvas(self, width=224, height=224, bg="#C8C8C8")
-        self.image_area.place(x=80, y=50)
+        self.image_area = Canvas(self.root, width=224, height=224, bg="#C8C8C8")
+        #self.image_area.place(x=80, y=50)
 
-        self.result = Label(self, bg="#4f4545", text=resultCNN)
-
+        self.log = ScrolledText(self, height=10, width=400, font=("consolas", "8", "normal"))
+        
+        self.image_area.pack(side=TOP, expand=YES)
+        self.log.pack(side=BOTTOM, expand=NO)
+    
+        logger = PrintLogger(self.log)
+        sys.stdout = logger
+        sys.stderr = logger
 
 if __name__ == "__main__":
     global ad, resultCNN
     resultCNN = "Saudável"
     ad = MainApp()
     ad.title('D.A.R.X.')
-    ad.geometry('400x400')  # Resolução inicial
+    ad.geometry('600x400')  # Resolução inicial
     ad.mainloop()
 
     # Diagnostico de Artrite por Raio X (DARX)
