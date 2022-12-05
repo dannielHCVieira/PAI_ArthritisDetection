@@ -14,12 +14,56 @@ from matplotlib import pyplot as plt
 from mlxtend.plotting import plot_confusion_matrix
 from sklearn.metrics import classification_report, confusion_matrix
 from time import time
+import pickle
+from imutils import paths
+from imutils import perspective
+from imutils import contours
+import imutils
+import math
+from scipy.spatial import distance as dist
+
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from imutils import paths
+import os
+from keras_preprocessing.image import ImageDataGenerator
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Dropout,Flatten,Dense,Input
+from keras import Sequential
+from tensorflow.keras.applications.mobilenet_v3 import preprocess_input
+from tensorflow.keras.preprocessing.image import img_to_array, array_to_img
+from tensorflow.keras.preprocessing.image import load_img
+from tensorflow.keras.utils import to_categorical
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+from sklearn.svm import SVC 
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
+from scipy.constants import lb
+import numpy as np
+import cv2 as cv
+import math
+import imutils
+from scipy.spatial import distance as dist
+from imutils import perspective
+from imutils import contours
+from sklearn.impute import SimpleImputer
+from xgboost import XGBRegressor, XGBClassifier
+from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import plot_confusion_matrix, confusion_matrix
+import pandas as pd
+from time import time
 
 
-SVM = ""  #tf.keras.models.load_model('models/SVM.h5')
-XG = ""  # tf.keras.models.load_model('models/XGBoost.h5')
+SVM = pickle.load(open('models/SVM.h5','rb'))  
+XG = pickle.load(open('models/XGBoost.h5','rb')) 
 DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
 
+def loadModel():
+    SVM = pickle.load(open('models/SVM.h5','rb'))  #tf.keras.models.load_model('models/SVM.h5')
+    XG = pickle.load(open('models/XGBoost.h5','rb'))  # tf.keras.models.load_model('models/XGBoost.h5')
+    DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
 
 def matchTemplatePrivate(img):
     METHOD = cv.TM_CCOEFF
@@ -60,7 +104,6 @@ def matchTemplatePrivate(img):
 
     return top_left, bottom_right
 
-
 def apply_match_template(image):
     image = img_to_array(image, dtype='uint8')
 
@@ -72,7 +115,6 @@ def apply_match_template(image):
 
     image = img_to_array(image, dtype='uint8')
     return image  # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
-
 
 def preprocess_images(dataset_path):
     preprocessed_path = dataset_path + "_preprocessed"
@@ -102,15 +144,112 @@ def preprocess_images(dataset_path):
                 cv.imwrite(filename_eq_flip_path, flipped)
                 cv.imwrite(filename_flip_path, flip_img)
 
+def find_distance_between_bones(img):
+    gray = cv.GaussianBlur(img, (7, 7), 0)
+    # perform edge detection, then perform a dilation + erosion to
+    # close gaps in between object edges
+    edged = cv.Canny(gray, 50, 100)
+    edged = cv.dilate(edged, None, iterations=1)
+    edged = cv.erode(edged, None, iterations=1)
+    # find contours in the edge map
+    cnts = cv.findContours(edged.copy(), cv.RETR_EXTERNAL,
+        cv.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    (cnts, _) = contours.sort_contours(cnts, method="top-to-bottom")
+    colors = ((0, 0, 255), (240, 0, 159), (0, 165, 255), (255, 255, 0),
+        (255, 0, 255))
+    refObj = None
+    
+    menorDistancia = math.inf
+    distancias = 0
+    cont = 0
+    
+    for c in cnts:
+        # if the contour is not sufficiently large, ignore it
+        #if cv.contourArea(c) < 10:
+        #   continue
+        # compute the rotated bounding box of the contour
+        box = cv.minAreaRect(c)
+        box = cv.cv.BoxPoints(box) if imutils.is_cv2() else cv.boxPoints(box)
+        box = np.array(box, dtype="int")
+        # order the points in the contour such that they appear
+        # in top-left, top-right, bottom-right, and bottom-left
+        # order, then draw the outline of the rotated bounding
+        # box
+        box = perspective.order_points(box)
+        # compute the center of the bounding box
+        cX = np.average(box[:, 0])
+        cY = np.average(box[:, 1])
+        # if this is the first contour we are examining (i.e.,
+        # the left-most contour), we presume this is the
+        # reference object
+        if refObj is None:
+            # unpack the ordered bounding box, then compute the
+            # midpoint between the top-left and top-right points,
+            # followed by the midpoint between the top-right and
+            # bottom-right
+            (tl, tr, br, bl) = box
+            (tlblX, tlblY) = midpoint(tl, bl)
+            (trbrX, trbrY) = midpoint(tr, br)
+            # compute the Euclidean distance between the midpoints,
+            # then construct the reference object
+            D = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
+            refObj = (box, (cX, cY), D / 224)
+            continue
+        # draw the contours on the image
+        orig = img.copy()
+        cv.drawContours(orig, [box.astype("int")], -1, (0, 255, 0), 2)
+        cv.drawContours(orig, [refObj[0].astype("int")], -1, (0, 255, 0), 2)
+        # stack the reference coordinates and the object coordinates
+        # to include the object center
+        refCoords = np.vstack([refObj[0], refObj[1]])
+        objCoords = np.vstack([box, (cX, cY)])
+        # loop over the original points
+        for ((xA, yA), (xB, yB), color) in zip(refCoords, objCoords, colors):
+            
+            # draw circles corresponding to the current points and
+            # connect them with a line
+            cv.circle(orig, (int(xA), int(yA)), 5, color, -1)
+            cv.circle(orig, (int(xB), int(yB)), 5, color, -1)
+            cv.line(orig, (int(xA), int(yA)), (int(xB), int(yB)),
+                color, 2)
+            # compute the Euclidean distance between the coordinates,
+            # and then convert the distance in pixels to distance in
+            # units
+            D = dist.euclidean((xA, yA), (xB, yB)) / refObj[2]
+
+            distancias += D
+            cont+=1
+            if D< menorDistancia:
+                menorDistancia = D
+
+            (mX, mY) = midpoint((xA, yA), (xB, yB))
+            cv.putText(orig, "{:.1f}in".format(D), (int(mX), int(mY - 10)),
+                cv.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
+            # show the output image
+            #cv.imshow("Image", orig)
+            #cv.waitKey(0)
+    
+    if cont == 0:
+        mediaDistancia = 0
+    else:
+        mediaDistancia = (distancias/cont)
+        
+    if menorDistancia == math.inf:
+        menorDistancia = 0
+    return mediaDistancia, menorDistancia
+
+def midpoint(ptA, ptB):
+	return (ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5
 
 def count_black_pixels(image):
     # print(cropped)
+    image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     ret, bw = cv.threshold(image, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU)
     # count non zero
     IMAGE_SIZE = 224 * 224
     response = cv.countNonZero(bw)
     return IMAGE_SIZE - response
-
 
 def processImage(image):
     image = img_to_array(image, dtype='uint8')
@@ -121,28 +260,52 @@ def processImage(image):
     image = img_to_array(image)
     return cv.cvtColor(image, cv.COLOR_GRAY2RGB)
 
-
-def trainXGBoost(path_train, path_val, path_test):
-    train_dataset = path_train
-    val_dataset = path_val
+def testXGBoost(path_test):
     test_dataset = path_test
 
+    test_images=list(paths.list_images(test_dataset))
 
-def trainSVM(path_train, path_val, path_test):
+    test_data=[]
+    test_labels=[]
+
+    for i in test_images:#adicionar nosso preprocessamento
+        label=i.split(os.path.sep)[-2]
+        test_labels.append(label)
+        image = load_img(i,target_size=(224,224), color_mode="grayscale")
+        image = processImage(image)
+        test_data.append(image)
+    
+    test_data=np.array(test_data, dtype='uint8')
+    test_labels=np.array(test_labels)
+
+    test_data_table = []
+    for data in test_data:
+        media, menor = find_distance_between_bones(data)
+        count_black = count_black_pixels(data)
+        test_data_table.append((media,menor,count_black))
+
+    test_labels = np.array(test_labels, dtype=object)
+    test_labels_int = test_labels.astype(np.dtype(np.int_))
+
+    xgb_model = pickle.load(open('models/XGBoost.h5','rb'))
+
+    xgb_predictions = xgb_model.predict(test_data_table)
+
+    fig = plot_confusion_matrix(xgb_model, test_data_table, test_labels_int, cmap='Blues')
+    plt.xlabel('', fontsize=18)
+    plt.ylabel('', fontsize=18)
+    plt.savefig("results\\svm_cm.png")
+
+    report = classification_report(test_labels_int, xgb_predictions, target_names=["0", "1", "2", "3", "4"])
+    return report
+
+def trainXGBoost(path_train):
     train_dataset = path_train
-    val_dataset = path_val
-    test_dataset = path_test
 
     train_images = list(paths.list_images(train_dataset))
-    val_images = list(paths.list_images(val_dataset))
-    test_images = list(paths.list_images(test_dataset))
 
     train_data = []
     train_labels = []
-    val_data = []
-    val_labels = []
-    test_data = []
-    test_labels = []
 
     for i in train_images:  # adicionar nosso preprocessamento
         label = i.split(os.path.sep)[-2]
@@ -151,31 +314,104 @@ def trainSVM(path_train, path_val, path_test):
         image = processImage(image)
         train_data.append(image)
 
-    for i in val_images:  # adicionar nosso preprocessamento
-        label = i.split(os.path.sep)[-2]
-        val_labels.append(label)
-        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
-        image = processImage(image)
-        val_data.append(image)
+    train_data = np.array(train_data, dtype='uint8')
+    train_labels = np.array(train_labels)
 
-    for i in test_images:  # adicionar nosso preprocessamento
-        label = i.split(os.path.sep)[-2]
+    # ainda não acabou
+    train_data_table = []
+    for data in train_data:
+        media, menor = find_distance_between_bones(data)
+        count_black = count_black_pixels(data)
+        train_data_table.append((media,menor,count_black))
+
+    train_data_np = np.array(train_data_table, dtype=object)
+    train_labels = np.array(train_labels, dtype=object)
+    train_labels_int = train_labels.astype(np.dtype(np.int_))
+    
+    now = time()
+    xgb_model = XGBClassifier(n_estimators = 650,
+                      max_depth = 10,
+                      learning_rate = 0.01,
+                      subsample = 1,
+                      random_state = 0
+                     )
+    now = time()
+    xgb_history = xgb_model.fit(train_data_np, train_labels_int, verbose=False)
+    print(time() - now)
+    xgb_filename = '../models/XGBoost.h5'
+    pickle.dump(xgb_model, open(xgb_filename,
+                            'wb'))
+    loadModel()
+
+
+def testSVM(path_test):
+    test_dataset = path_test
+
+    test_images=list(paths.list_images(test_dataset))
+
+    test_data=[]
+    test_labels=[]
+
+    for i in test_images:#adicionar nosso preprocessamento
+        label=i.split(os.path.sep)[-2]
         test_labels.append(label)
-        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = load_img(i,target_size=(224,224), color_mode="grayscale")
         image = processImage(image)
         test_data.append(image)
+    
+    test_data=np.array(test_data, dtype='uint8')
+    test_labels=np.array(test_labels)
+
+    test_data_table = []
+    for data in test_data:
+        media, menor = find_distance_between_bones(data)
+        count_black = count_black_pixels(data)
+        test_data_table.append((media,menor,count_black))
+    
+    svm_model = pickle.load(open('models/SVM.h5','rb'))
+
+    svm_predict = svm_model.predict(test_data_table)
+
+    fig = plot_confusion_matrix(svm_model, test_data_table, test_labels, cmap='Blues')
+    plt.xlabel('', fontsize=18)
+    plt.ylabel('', fontsize=18)
+    plt.savefig("results\\svm_cm.png")
+
+    report = classification_report(test_labels ,svm_predict, target_names=["0", "1", "2", "3", "4"])
+    return report
+
+def trainSVM(path_train):
+    train_dataset = path_train
+
+    train_images = list(paths.list_images(train_dataset))
+
+    train_data = []
+    train_labels = []
+
+    for i in train_images:  # adicionar nosso preprocessamento
+        label = i.split(os.path.sep)[-2]
+        train_labels.append(label)
+        image = load_img(i, target_size=(224, 224), color_mode="grayscale")
+        image = processImage(image)
+        train_data.append(image)
 
     train_data = np.array(train_data, dtype='uint8')
     train_labels = np.array(train_labels)
 
-    val_data = np.array(val_data, dtype='uint8')
-    val_labels = np.array(val_labels)
-
-    test_data = np.array(test_data, dtype='uint8')
-    test_labels = np.array(test_labels)
-
     # ainda não acabou
+    train_data_table = []
+    for data in train_data:
+        media, menor = find_distance_between_bones(data)
+        count_black = count_black_pixels(data)
+        train_data_table.append((media,menor,count_black))
 
+    now = time()
+    svm_model = SVC(kernel='rbf', class_weight='balanced').fit(train_data_table, train_labels)
+    print(now - time())
+
+    svm_filename = '../models/SVM.h5'
+    pickle.dump(svm_model, open(svm_filename, 'wb'))
+    loadModel()
 
 def testDL(path_test):
     test_dataset = path_test
@@ -309,6 +545,7 @@ def trainDL(path_train, path_val):
     # plt.show()
     plt.savefig("results\\accuracy.png")
     model.save('.\\trained_model_mobileNet.h5')
+    loadModel()
 
 
 def predict(method, img):
