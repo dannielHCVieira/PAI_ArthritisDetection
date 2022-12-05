@@ -85,11 +85,11 @@ class ImageOperations:
     def trainDL(self):
         Operations.trainDL(folder + "\\train_preprocessed", folder + "\\val_preprocessed")
 
-
     def trainXGBoost(self):
-        print("")
+        Operations.trainXGBoost(folder + "\\train_preprocessed")
+
     def trainSVM(self):
-        print("")
+        Operations.trainSVM(folder + "\\train_preprocessed")
 
     # Carrega imagens para o programa
     def loadImage(self, path: string):
@@ -114,7 +114,6 @@ class ImageOperations:
         Operations.predict("SVM", img)
 
     def predictDL(self):
-
         img = Operations.apply_match_template(image)
         img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
         x = Operations.predict("DL", img)
