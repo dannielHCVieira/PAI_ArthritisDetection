@@ -40,6 +40,7 @@ class MenuBar(Menu):
         tools.add_command(label="Cut/Select", command=imageOperations.select_area)
         tools.add_command(label="Search...", command=imageOperations.match_template_cnn)
 
+        # Menus de treinamento, teste e predição única
         train = Menu(self, tearoff=0)
         train.add_command(label="Train XGBoost", command=imageOperations.trainXGBoost)
         train.add_command(label="Train DeepLearning", command=imageOperations.trainDL)
@@ -78,7 +79,7 @@ class MenuBar(Menu):
 
 
 class ImageOperations:
-
+    #funções auxiliares para teste e predição
     def testDL(self):
         thread = threading.Thread(target=self.testDLThread)
         thread.start()
@@ -118,6 +119,7 @@ class ImageOperations:
         print(report)
         self.showCM('SVM')
 
+    #funções auxiliares para treinamento
     def trainDL(self):
         thread = threading.Thread(target=Operations.trainDL, args=(folder + "\\train_preprocessed", folder + "\\val_preprocessed"))
         thread.start()
@@ -141,7 +143,7 @@ class ImageOperations:
     def displayImage(self, img):
         print(type(img))
         create_environment(img)
-    
+
     def showCM(self, type: string):
         img = cv.imread("results/"+ type.lower() +"_cm.png")
         cv.imshow(type, img)
@@ -167,7 +169,8 @@ class ImageOperations:
         class_pred = Operations.predict("DL", img)
         self.classify_image(class_pred)
 
-    def classify_image(self, class_pred: int): 
+    def classify_image(self, class_pred: int):
+    #classifica as imagens de forma binária e multi-classe
         if class_pred > 1:
             print("Osteoarthritis detected. Class " + str(class_pred))
         else:
