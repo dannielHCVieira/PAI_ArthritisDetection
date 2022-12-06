@@ -297,18 +297,29 @@ def testXGBoost(path_test):
     xgb_model = pickle.load(open('models/XGBoost.h5','rb'))
     print("OK!")
 
+    now = time()
     print("Testing model...",end="")
     xgb_predictions = xgb_model.predict(test_data_table)
     print("OK!")
+    total = time() - now
 
     print("Generating Confusion Matrix...",end="")
-    fig = plot_confusion_matrix(xgb_model, test_data_table, test_labels_int, cmap='Blues')
+    cm = confusion_matrix(y_true=test_labels_int, y_pred=xgb_predictions)
+    fig = plot_confusion_matrix(conf_mat=cm,
+                                    figsize=(6, 6),
+                                    class_names=["0", "1", "2", "3", "4"],
+                                    # cmap='Greys',
+
+                                    norm_colormap=matplotlib.colors.LogNorm())
     plt.xlabel('', fontsize=18)
     plt.ylabel('', fontsize=18)
+    plt.title('Confusion Matrix - XGBoost', fontsize=18)
     plt.savefig("results\\xgb_cm.png")
     print("OK!")
 
     report = classification_report(test_labels_int, xgb_predictions, target_names=["0", "1", "2", "3", "4"])
+
+    print("Total time: " + str(total) + "s")
     return report
 
 def trainXGBoost(path_train):
@@ -367,7 +378,7 @@ def trainXGBoost(path_train):
     print("Model saved!")
     loadModel()
 
-    print("Total time: " + total + "s")
+    print("Total time: " + str(total) + "s")
 
 def testSVM(path_test):
     test_dataset = path_test
@@ -401,11 +412,11 @@ def testSVM(path_test):
     print("Loading model...",end="")
     svm_model = pickle.load(open('models/SVM.h5','rb'))
     print("OK!")
-
+    now = time()
     print("Testing model...",end="")
     svm_predict = svm_model.predict(test_data_table)
     print("OK!")
-
+    total = time() - now
     print("Generating Confusion Matrix...",end="")
 
     cm = confusion_matrix(y_true=test_labels, y_pred=svm_predict)
@@ -419,11 +430,12 @@ def testSVM(path_test):
     #fig = plot_confusion_matrix(svm_model, test_data_table, test_labels, cmap='Blues')
     plt.xlabel('', fontsize=18)
     plt.ylabel('', fontsize=18)
-    plt.title('Confusion Matrix', fontsize=18)
+    plt.title('Confusion Matrix - SVM', fontsize=18)
     plt.savefig("results\\svm_cm.png")
     print("OK!")
 
     report = classification_report(test_labels ,svm_predict, target_names=["0", "1", "2", "3", "4"])
+    print("Total time: " + str(total) + "s")
     return report
 
 def trainSVM(path_train):
@@ -506,9 +518,10 @@ def testDL(path_test):
     print("OK!")
 
     print("Testing model...",end="")
-
+    now = time()
     predict = DL.predict(aug.flow(test_data), batch_size=BS)
     predict = np.argmax(predict, axis=1)
+    total = time() - now
     print(predict)
     print(test_labels)
 
@@ -526,11 +539,11 @@ def testDL(path_test):
 
     plt.xlabel('', fontsize=18)
     plt.ylabel('', fontsize=18)
-    plt.title('Confusion Matrix', fontsize=18)
+    plt.title('Confusion Matrix - DL', fontsize=18)
     # plt.show()
     plt.savefig("results\\dl_cm.png")
     print("OK!")
-
+    print("Total time: " + str(total) + "s")
     return report
 
 def trainDL(path_train, path_val):
@@ -611,8 +624,8 @@ def trainDL(path_train, path_val):
         epochs=Epochs,
         class_weight={0:0.50551181, 1:1.10478011, 2: 0.76226913, 3:1.52655218, 4: 6.67976879}
     )
-    print(time() - now)
-
+    total = time() - now
+    print("OK!")
     acc_train = history.history['accuracy']
     acc_val = history.history['val_accuracy']
 
@@ -627,6 +640,8 @@ def trainDL(path_train, path_val):
     plt.savefig("results\\accuracy.png")
     model.save('.\\trained_model_mobileNet.h5')
     loadModel()
+    print("Model saved!")
+    print("Total time: " + str(total) + "s")
 
 def predict(method, img):
     """
