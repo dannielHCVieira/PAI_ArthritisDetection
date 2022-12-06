@@ -56,8 +56,8 @@ import pandas as pd
 from time import time
 
 
-SVM = ""#pickle.load(open('models/SVM.h5','rb'))
-XG = ""#pickle.load(open('models/XGBoost.h5','rb'))
+SVM = pickle.load(open('models/SVM.h5','rb'))
+XG = pickle.load(open('models/XGBoost.h5','rb'))
 DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
 
 def loadModel():
@@ -463,7 +463,7 @@ def trainSVM(path_train):
     print("Training model...", end="")
     now = time()
     svm_model = SVC(kernel='rbf', class_weight='balanced').fit(train_data_table, train_labels)
-    total = now - time()
+    total = time() - now
 
     print("OK!")
 
