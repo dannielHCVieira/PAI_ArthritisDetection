@@ -6,7 +6,7 @@ import numpy as np
 from imutils import paths
 from keras import Sequential
 from keras.layers import Flatten, Dense, Dropout
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD
 from keras.utils import load_img, to_categorical
 from keras_preprocessing.image import img_to_array, array_to_img, ImageDataGenerator
 import tensorflow as tf
@@ -56,8 +56,8 @@ import pandas as pd
 from time import time
 
 
-SVM = pickle.load(open('models/SVM.h5','rb'))  
-XG = pickle.load(open('models/XGBoost.h5','rb')) 
+SVM = ""#pickle.load(open('models/SVM.h5','rb'))
+XG = ""#pickle.load(open('models/XGBoost.h5','rb'))
 DL = tf.keras.models.load_model('models/trained_model_mobileNet.h5')
 
 def loadModel():
@@ -117,8 +117,10 @@ def apply_match_template(image):
     return image  # cv.cvtColor(image,cv.COLOR_GRAY2RGB) lembrar de convertar para RGB se necessário
 
 def preprocess_images(dataset_path):
+    #pre-processa imagens para classificação
     preprocessed_path = dataset_path + "_preprocessed"
 
+    #cria novo diretório para nao sobreescrever imagens antigas
     if not os.path.isdir(preprocessed_path):
         os.mkdir(preprocessed_path)
         for folder in os.listdir(dataset_path):
@@ -146,15 +148,17 @@ def preprocess_images(dataset_path):
 
 def find_distance_between_bones(img):
     gray = cv.GaussianBlur(img, (7, 7), 0)
-    # perform edge detection, then perform a dilation + erosion to
-    # close gaps in between object edges
+    # encontra as bordas, depois dilata e erode a imagem
     edged = cv.Canny(gray, 50, 100)
     edged = cv.dilate(edged, None, iterations=1)
     edged = cv.erode(edged, None, iterations=1)
-    # find contours in the edge map
+
+    # encontra contornos
     cnts = cv.findContours(edged.copy(), cv.RETR_EXTERNAL,
         cv.CHAIN_APPROX_SIMPLE)
+
     cnts = imutils.grab_contours(cnts)
+
     (cnts, _) = contours.sort_contours(cnts, method="top-to-bottom")
     colors = ((0, 0, 255), (240, 0, 159), (0, 165, 255), (255, 255, 0),
         (255, 0, 255))
@@ -163,73 +167,54 @@ def find_distance_between_bones(img):
     menorDistancia = math.inf
     distancias = 0
     cont = 0
-    
+
+    #calcula distância para pontos superiores e inferiores
     for c in cnts:
-        # if the contour is not sufficiently large, ignore it
-        #if cv.contourArea(c) < 10:
-        #   continue
-        # compute the rotated bounding box of the contour
+
         box = cv.minAreaRect(c)
         box = cv.cv.BoxPoints(box) if imutils.is_cv2() else cv.boxPoints(box)
         box = np.array(box, dtype="int")
-        # order the points in the contour such that they appear
-        # in top-left, top-right, bottom-right, and bottom-left
-        # order, then draw the outline of the rotated bounding
-        # box
+        # ordena os pontos de cima pra baixo
         box = perspective.order_points(box)
-        # compute the center of the bounding box
+
         cX = np.average(box[:, 0])
         cY = np.average(box[:, 1])
-        # if this is the first contour we are examining (i.e.,
-        # the left-most contour), we presume this is the
-        # reference object
+        # testa se é o primeiro ponto encontradp
         if refObj is None:
-            # unpack the ordered bounding box, then compute the
-            # midpoint between the top-left and top-right points,
-            # followed by the midpoint between the top-right and
-            # bottom-right
+            # carrega o ponto
             (tl, tr, br, bl) = box
             (tlblX, tlblY) = midpoint(tl, bl)
             (trbrX, trbrY) = midpoint(tr, br)
-            # compute the Euclidean distance between the midpoints,
-            # then construct the reference object
+            # calcula distância euclideana para ele
             D = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
             refObj = (box, (cX, cY), D / 224)
             continue
-        # draw the contours on the image
         orig = img.copy()
         cv.drawContours(orig, [box.astype("int")], -1, (0, 255, 0), 2)
         cv.drawContours(orig, [refObj[0].astype("int")], -1, (0, 255, 0), 2)
-        # stack the reference coordinates and the object coordinates
-        # to include the object center
         refCoords = np.vstack([refObj[0], refObj[1]])
         objCoords = np.vstack([box, (cX, cY)])
-        # loop over the original points
+        # itera pelos pontos originais
         for ((xA, yA), (xB, yB), color) in zip(refCoords, objCoords, colors):
-            
-            # draw circles corresponding to the current points and
-            # connect them with a line
+
             cv.circle(orig, (int(xA), int(yA)), 5, color, -1)
             cv.circle(orig, (int(xB), int(yB)), 5, color, -1)
             cv.line(orig, (int(xA), int(yA)), (int(xB), int(yB)),
                 color, 2)
-            # compute the Euclidean distance between the coordinates,
-            # and then convert the distance in pixels to distance in
-            # units
+            # calcula a distância entre as coordenadas dos pontos encontrados
             D = dist.euclidean((xA, yA), (xB, yB)) / refObj[2]
 
+            #armazeman a distância total e quantos pontos são examinados
             distancias += D
             cont+=1
+
+            #armazena a menor distância encontrada
             if D< menorDistancia:
                 menorDistancia = D
 
             (mX, mY) = midpoint((xA, yA), (xB, yB))
             cv.putText(orig, "{:.1f}in".format(D), (int(mX), int(mY - 10)),
                 cv.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
-            # show the output image
-            #cv.imshow("Image", orig)
-            #cv.waitKey(0)
-    
     if cont == 0:
         mediaDistancia = 0
     else:
@@ -237,13 +222,15 @@ def find_distance_between_bones(img):
         
     if menorDistancia == math.inf:
         menorDistancia = 0
+    #retorna a menor distância encontrada e a distância média
     return mediaDistancia, menorDistancia
 
 def midpoint(ptA, ptB):
+    #encontra o ponto médio
 	return (ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5
 
 def count_black_pixels(image):
-    # print(cropped)
+    #conta a quantidade de pontos pretos(fundo) encontrados na imagem cortada
     image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     ret, bw = cv.threshold(image, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU)
     # count non zero
@@ -252,6 +239,7 @@ def count_black_pixels(image):
     return IMAGE_SIZE - response
 
 def processImage(image):
+    #processa  a imagem em conjunto com o matchTemplate
     image = img_to_array(image, dtype='uint8')
     x, y = matchTemplatePrivate(image)
     image = image[x[1]:y[1], x[0]:y[0]]
@@ -261,6 +249,7 @@ def processImage(image):
     return cv.cvtColor(image, cv.COLOR_GRAY2RGB)
 
 def testXGBoost(path_test):
+    #testa o classificador XGBoost
     test_dataset = path_test
 
     test_images=list(paths.list_images(test_dataset))
@@ -277,12 +266,13 @@ def testXGBoost(path_test):
         test_data.append(image)
     print("OK!")
 
-
+    #processa as imagens
     print("Processing images...", end="")
     test_data=np.array(test_data, dtype='uint8')
     test_labels=np.array(test_labels)
 
     test_data_table = []
+    #aplica os descritores na imagem a ser testada
     for data in test_data:
         media, menor = find_distance_between_bones(data)
         count_black = count_black_pixels(data)
@@ -301,6 +291,7 @@ def testXGBoost(path_test):
     xgb_predictions = xgb_model.predict(test_data_table)
     print("OK!")
 
+    #plota a matriz de confusão com base no resultado
     print("Generating Confusion Matrix...",end="")
     fig = plot_confusion_matrix(xgb_model, test_data_table, test_labels_int, cmap='Blues')
     plt.xlabel('', fontsize=18)
@@ -312,6 +303,7 @@ def testXGBoost(path_test):
     return report
 
 def trainXGBoost(path_train):
+
     train_dataset = path_train
 
     train_images = list(paths.list_images(train_dataset))
@@ -334,12 +326,12 @@ def trainXGBoost(path_train):
     train_data = np.array(train_data, dtype='uint8')
     train_labels = np.array(train_labels)
 
-    # ainda não acabou
+    # aplica os descritores na imagem a ser treinada
     train_data_table = []
     for data in train_data:
         media, menor = find_distance_between_bones(data)
         count_black = count_black_pixels(data)
-        train_data_table.append((media,menor,count_black))
+        train_data_table.append((media, menor, count_black))
 
     train_data_np = np.array(train_data_table, dtype=object)
     train_labels = np.array(train_labels, dtype=object)
@@ -361,9 +353,9 @@ def trainXGBoost(path_train):
     total = time() - now
     print("OK!")
 
-
+    #salva modelo
     xgb_filename = 'models/XGBoost.h5'
-    pickle.dump(xgb_model, open(xgb_filename,'wb'))
+    pickle.dump(xgb_model, open(xgb_filename, 'wb'))
     print("Model saved!")
     loadModel()
 
@@ -381,7 +373,7 @@ def testSVM(path_test):
     print("OK!")
 
     print("Processing images..." ,end="")
-    for i in test_images:#adicionar nosso preprocessamento
+    for i in test_images:#passa imagem pelo pre-processamento inicial
         label=i.split(os.path.sep)[-2]
         test_labels.append(label)
         image = load_img(i,target_size=(224,224), color_mode="grayscale")
@@ -406,9 +398,10 @@ def testSVM(path_test):
     svm_predict = svm_model.predict(test_data_table)
     print("OK!")
 
-    print("Generating Confusion Matrix...",end="")
+    print("Generating Confusion Matrix...", end="")
 
     cm = confusion_matrix(y_true=test_labels, y_pred=svm_predict)
+    #plota matriz de confusão com o resultado
     fig = plot_confusion_matrix(conf_mat=cm,
                                     figsize=(6, 6),
                                     class_names=["0", "1", "2", "3", "4"],
@@ -427,6 +420,7 @@ def testSVM(path_test):
     return report
 
 def trainSVM(path_train):
+    #treina a SVM
     train_dataset = path_train
     print("Loading Images...", end="")
     train_images = list(paths.list_images(train_dataset))
@@ -434,7 +428,7 @@ def trainSVM(path_train):
     train_data = []
     train_labels = []
 
-    for i in train_images:  # adicionar nosso preprocessamento
+    for i in train_images:  # pre-processa as imagens
         label = i.split(os.path.sep)[-2]
         train_labels.append(label)
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
@@ -446,7 +440,7 @@ def trainSVM(path_train):
     train_data = np.array(train_data, dtype='uint8')
     train_labels = np.array(train_labels)
 
-    # ainda não acabou
+    # aplica descritores
     train_data_table = []
     for data in train_data:
         media, menor = find_distance_between_bones(data)
@@ -461,7 +455,7 @@ def trainSVM(path_train):
 
     print("OK!")
 
-
+    #salva modelo
     svm_filename = 'models/SVM.h5'
     pickle.dump(svm_model, open(svm_filename, 'wb'))
     loadModel()
@@ -470,7 +464,7 @@ def trainSVM(path_train):
     print("Total time: " + str(total) + "s")
 
 def testDL(path_test):
-
+    #testa Deep Learning
     print("Loading Images...", end="")
     test_dataset = path_test
 
@@ -480,8 +474,8 @@ def testDL(path_test):
     test_labels = []
     print("OK!")
 
-    print("Processing images..." ,end="")
-    for i in test_images:  # adicionar nosso preprocessamento
+    print("Processing images...", end="")
+    for i in test_images:  # pre-processa imagens
         label = i.split(os.path.sep)[-2]
         test_labels.append(label)
         image = load_img(i, target_size=(224, 224), color_mode="grayscale")
@@ -498,23 +492,25 @@ def testDL(path_test):
 
     BS = len(test_data)//10
 
-    print("Loading model...",end="")
-
+    print("Loading model...", end="")
+    #cria Generator para dividirmos a quantidade de imagens carregadas em memória principal
     aug = ImageDataGenerator()
     print(len(test_data))
 
     print("OK!")
 
     print("Testing model...",end="")
-
+    #prediz imagens
     predict = DL.predict(aug.flow(test_data), batch_size=BS)
     predict = np.argmax(predict, axis=1)
     print(predict)
     print(test_labels)
 
     print("OK!")
+    #cria report de classificação
     report = classification_report(test_labels.argmax(axis=1), predict, target_names=["0", "1", "2", "3", "4"])
 
+    #plota matriz de confusão com os resultados
     print("Generating Confusion Matrix...",end="")
     cm = confusion_matrix(y_true=test_labels.argmax(axis=1), y_pred=predict)
     fig = plot_confusion_matrix(conf_mat=cm,
@@ -527,7 +523,6 @@ def testDL(path_test):
     plt.xlabel('', fontsize=18)
     plt.ylabel('', fontsize=18)
     plt.title('Confusion Matrix', fontsize=18)
-    # plt.show()
     plt.savefig("results\\dl_cm.png")
     print("OK!")
 
@@ -593,12 +588,12 @@ def trainDL(path_train, path_val):
     model = Sequential([base_model,
                         Flatten(),
                         Dense(1000, activation='relu'),
-                        #Dropout(0.3),
+                        Dropout(0.3),
                         Dense(700, activation='relu'),
-                        #Dropout(0.3),
+                        Dropout(0.3),
                         Dense(500, activation='relu'),
-                        #Dropout(0.3),
-                        Dense(5, activation='softmax')])#1024,64,0.2
+                        Dropout(0.3),
+                        Dense(5, activation='softmax')])
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
     # treina, calculando o tempo gasto para isso
@@ -631,8 +626,9 @@ def trainDL(path_train, path_val):
 def predict(method, img):
     """
     :param method: método a ser utilizado para predizer ["XG","DL","SVM"]
-    :return:
+    :return: predição
     """
+    #prediz a classe com base no modelo escolhido e imagem selecionada
     if method == "XG":
         #img = img.reshape((1, 224, 224, 3))
         img_table = extractDescriptors(img)
@@ -648,7 +644,9 @@ def predict(method, img):
     return prediction.numpy().argmax()
 
 def extractDescriptors(data):
+    #extrai os descritores de media e menor distância entre os ossos
     media, menor = find_distance_between_bones(data)
+    #conta quantidade de pontos pretos
     count_black = count_black_pixels(data)
     return (media,menor,count_black)
 
