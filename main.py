@@ -161,7 +161,7 @@ class ImageOperations:
         img = Operations.apply_match_template(image)
         img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
         class_pred = Operations.predict("SVM", img)
-        self.classify_image(class_pred)
+        self.classify_image(int(class_pred))
 
     def predictDL(self):
         img = Operations.apply_match_template(image)
